@@ -65,7 +65,7 @@ void defBorda(char borda[LINB][COLB]) {
 
 int mostra(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], int perd) {
     for (int j = 1; j <= COLB-1; j++) {
-        if (borda[1][j]=='#')
+        if (borda[1][j] == '#')
             return 0;
     }
     for (int i = 0; i < LINB; i++) {
@@ -77,7 +77,7 @@ int mostra(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], int perd) 
             } else {
                 if (borda[i][j] == '|' || borda[i][j] == '-') {
                 attron(COLOR_PAIR(8));
-                mvaddch(i+3, j+40, ACS_CKBOARD);
+                mvaddch(i + 3, j + 40, ACS_CKBOARD);
                 attroff(COLOR_PAIR(8));
                 }
                 else
@@ -110,12 +110,12 @@ void defPeca(char p1[TAMP][TAMP], char p2[TAMP][TAMP], char p3[TAMP][TAMP], char
             p7[i][j] = ' ';
         }
     }
-    p1[0][1] = p1[1][1] = p1[2][1] = p1[3][1] = '#';
-    p2[0][1] = p2[1][1] = p2[2][1] = p2[2][0] = '#';
-    p3[0][0] = p3[1][0] = p3[2][0] = p3[2][1] = '#';
+    p1[2][0] = p1[2][1] = p1[2][2] = p1[2][3] = '#';
+    p2[0][0] = p2[1][0] = p2[1][1] = p2[1][2] = '#';
+    p3[1][0] = p3[1][1] = p3[1][2] = p3[0][2] = '#';
     p4[0][0] = p4[1][0] = p4[0][1] = p4[1][1] = '#';
     p5[0][1] = p5[1][1] = p5[0][2] = p5[1][0] = '#';
-    p6[0][1] = p6[0][0] = p6[0][2] = p6[1][1] = '#';
+    p6[1][0] = p6[1][1] = p6[1][2] = p6[0][1] = '#';
     p7[0][1] = p7[0][0] = p7[1][1] = p7[1][2] = '#';
 }
 
@@ -371,17 +371,14 @@ void inic_ncurses() {
 void proximaPeca(char peca2[TAMP][TAMP], int cor2) {
     for (int i = 0; i < TAMP; i++) {
         for (int j = 0; j< TAMP; j++) {
-            if (cor2 == 1) {
-                if (peca2[i][j] == '#') {
-                attron(COLOR_PAIR(cor2));
-                mvaddch(i + 4, j + 15, ACS_CKBOARD);
-                attroff(COLOR_PAIR(cor2));
-                break;
-                }
-            }
             if (peca2[i][j] == '#') {
                 attron(COLOR_PAIR(cor2));
-                mvaddch(i + 5, j + 15, ACS_CKBOARD);
+                if (cor2 == 1)
+                    mvaddch(i + 4, j + 15, ACS_CKBOARD);
+                else if (cor2 == 2)
+                    mvaddch(i + 5, j + 16, ACS_CKBOARD);
+                else
+                    mvaddch(i + 5, j + 15, ACS_CKBOARD);
                 attroff(COLOR_PAIR(cor2));
             }
         }
@@ -399,8 +396,8 @@ void limpa_proximaPeca(char peca2[TAMP][TAMP]) {
 
 void borda_proximaPeca() {
     for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 11; j++) {
-            if (!i || !j || i == 7 || j == 10) {
+        for (int j = 0; j < 12; j++) {
+            if (!i || !j || i == 7 || j == 11) {
                 attron(COLOR_PAIR(8));
                 mvaddch(i + 2, j + 11, ACS_CKBOARD);
                 attroff(COLOR_PAIR(8));
