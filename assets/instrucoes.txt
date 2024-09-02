@@ -1,0 +1,24 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                                                                      ║
+║  -> Controles:                                                       ║
+║                                                                      ║
+║    a/d: mover para esquerda ou direita                               ║
+║    s: fazer o bloco cair mais rápido                                 ║
+║    spacebar: girar o bloco                                           ║
+║    (Durante o jogo) q: Voltar ao menu principal                      ║
+║                                                                      ║
+║  -> Regras:                                                          ║
+║                                                                      ║
+║    O objetivo do jogo é empilhar as peças de modo que completem      ║
+║    linhas horizontais.                                               ║
+║                                                                      ║
+║    Quando uma linha é formada, ela é eliminada e as camadas          ║
+║    superiores descem.                                                ║
+║                                                                      ║
+║    Continue fomando linhas para ganhar pontos e não deixe a pilha    ║
+║    chegar ao topo da tela.                                           ║
+║                                                                      ║
+║                                                                      ║
+║                    Pressione 'q' para voltar.                        ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
