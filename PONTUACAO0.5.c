@@ -15,35 +15,35 @@ void rotacionarPeca(char peca[TAMP][TAMP], int cor);
 int sorteioPeca(int *inicial, int *cor2, char peca[TAMP][TAMP], char peca2[TAMP][TAMP], char p1[TAMP][TAMP], char p2[TAMP][TAMP], char p3[TAMP][TAMP], char p4[TAMP][TAMP], char p5[TAMP][TAMP], char p6[TAMP][TAMP], char p7[TAMP][TAMP]);
 void defPeca(char p1[TAMP][TAMP], char p2[TAMP][TAMP], char p3[TAMP][TAMP], char p4[TAMP][TAMP], char p5[TAMP][TAMP], char p6[TAMP][TAMP], char p7[TAMP][TAMP]);
 void lixo(char borda[LINB][COLB], int corBorda[LINB][COLB]);
-int mostra(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], int perd);
+int mostra(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], int perd, int* score);
 void defBorda(char borda[LINB][COLB]);
-void moverPeca(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], char peca[TAMP][TAMP], int perd);
-void linhaCompleta(char borda[LINB][COLB]);
+void moverPeca(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], char peca[TAMP][TAMP], int perd, int* score);
+void linhaCompleta(char borda[LINB][COLB], int* score);
 void inic_ncurses();
 void proximaPeca(char peca2[TAMP][TAMP], int cor2);
 void limpa_proximaPeca(char peca2[TAMP][TAMP]);
 void borda_proximaPeca();
-int cpontos = 0;
+
 int main() {
     inic_ncurses();
     srand(time(NULL));
     setlocale(LC_ALL, "Portuguese");
     char borda[LINB][COLB], p1[TAMP][TAMP], p2[TAMP][TAMP], p3[TAMP][TAMP], p4[TAMP][TAMP], p5[TAMP][TAMP], p6[TAMP][TAMP], p7[TAMP][TAMP];
-    int cpontos = 0;
     char peca[TAMP][TAMP], peca2[TAMP][TAMP];
     int cor, cor2, corBorda[LINB][COLB];
     lixo(borda, corBorda);
     defBorda(borda);
     defPeca(p1, p2, p3, p4, p5, p6, p7);
     int perd = 1, inicial = 0;
+    int score = 0;
     while (perd) {
         borda_proximaPeca();
-        linhaCompleta(borda);
+        linhaCompleta(borda, &score);
         cor = sorteioPeca(&inicial, &cor2, peca, peca2, p1, p2, p3, p4, p5, p6, p7);
         proximaPeca(peca2, cor2);
-        mostra(corBorda, cor, borda, perd);
-        moverPeca(corBorda, cor, borda, peca, perd);
-        perd = mostra(corBorda, cor, borda, perd);
+        mostra(corBorda, cor, borda, perd, &score);
+        moverPeca(corBorda, cor, borda, peca, perd, &score);
+        perd = mostra(corBorda, cor, borda, perd, &score);
         limpa_proximaPeca(peca2);
     }
     usleep(2000000);
@@ -64,7 +64,7 @@ void defBorda(char borda[LINB][COLB]) {
     }
 }
 
-int mostra(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], int perd) {
+int mostra(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], int perd, int* score) {
     for (int j = 1; j <= COLB-1; j++) {
         if (borda[1][j] == '#')
             return 0;
@@ -87,7 +87,7 @@ int mostra(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], int perd) 
         }
         printw("\n");
     }
-    printw ("\nscore: %d\n", cpontos);
+    printw ("\nscore: %d\n", *score);
     return 1;
 }
 
@@ -185,7 +185,7 @@ int checarColisao(char borda[LINB][COLB], char peca[TAMP][TAMP], int posX, int p
     return 0;
 }
 
-void moverPeca(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], char peca[TAMP][TAMP], int perd) {
+void moverPeca(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], char peca[TAMP][TAMP], int perd, int* score) {
     int posX = 1;
     int posY = (COLB / 2) - 1;
     int colidiu;
@@ -270,7 +270,7 @@ void moverPeca(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], char p
             refresh();
         else
             usleep(120000 - vel);
-        mostra(corBorda, cor, borda, perd);
+        mostra(corBorda, cor, borda, perd, score);
     }
 }
 
@@ -327,8 +327,8 @@ void rotacionarPeca(char peca[TAMP][TAMP], int cor) {
     }
 }
 
-void linhaCompleta(char borda[LINB][COLB]) {
-	int clinhas = 0;	
+void linhaCompleta(char borda[LINB][COLB], int* score) {
+	int clinhas = 0;
 	for (int i = 1; i < LINB - 1; i++) {
  	    int val = 1;
         	for (int j = 1; j < COLB - 1; j++) {
@@ -349,7 +349,7 @@ void linhaCompleta(char borda[LINB][COLB]) {
     			}
 		}
     	}
-	cpontos += clinhas*100;
+	*score += clinhas*100;
 }    
 
 void inic_ncurses() {
