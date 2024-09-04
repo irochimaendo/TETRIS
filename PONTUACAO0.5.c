@@ -19,6 +19,7 @@ int mostra(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], int perd, 
 void defBorda(char borda[LINB][COLB]);
 void moverPeca(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], char peca[TAMP][TAMP], int perd, int* score);
 void linhaCompleta(char borda[LINB][COLB], int* score);
+void removerLinha(int end, char borda[LINB][COLB], int* score);
 void inic_ncurses();
 void proximaPeca(char peca2[TAMP][TAMP], int cor2);
 void limpa_proximaPeca(char peca2[TAMP][TAMP]);
@@ -328,28 +329,32 @@ void rotacionarPeca(char peca[TAMP][TAMP], int cor) {
 }
 
 void linhaCompleta(char borda[LINB][COLB], int* score) {
-	int clinhas = 0;
-	for (int i = 1; i < LINB - 1; i++) {
- 	    int val = 1;
-        	for (int j = 1; j < COLB - 1; j++) {
-            		if (borda[i][j] == ' ') {
-                	val = 0;
-                	break;
-            		}
-        	}
-        	if (val) {
-			clinhas++;
-			for (int i = LINB - 1; i > 1; i--) {
-        			for (int j = 1; j < COLB - 1; j++) {
-            				borda[i][j] = borda[i - 1][j];
-        			}
-   	 		}	
-    			for (int j = 1; j < COLB - 1; j++) {
-       	 			borda[1][j] = ' ';
-    			}
-		}
-    	}
-	*score += clinhas*100;
+    int clinhas = 0;
+    for (int i = 1; i < LINB - 1; i++) {
+        int val = 1;
+        for (int j = 1; j < COLB - 1; j++) {
+            if (borda[i][j] == ' ') {
+                val = 0;
+                break;
+            }
+        }
+        if (val) {
+	    clinhas++;
+            removerLinha(i, borda, score);
+        }
+    }
+    *score += clinhas*100;
+}
+
+void removerLinha(int end, char borda[LINB][COLB], int* score) {
+    for (int i = end; i > 1; i--) {
+        for (int j = 1; j < COLB - 1; j++) {
+            borda[i][j] = borda[i - 1][j];
+        }
+    }
+    for (int j = 1; j < COLB - 1; j++) {
+        borda[1][j] = ' ';
+    }
 }    
 
 void inic_ncurses() {
