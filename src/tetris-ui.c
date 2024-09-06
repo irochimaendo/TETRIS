@@ -1,17 +1,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <curses.h>
-#include <unistd.h>
 #include <locale.h>
+
+// Dimensões da matriz onde os tetraminós vão ser empilhados.
 #define GAME_W 15
 #define GAME_H 18
+
+// Usado por fgets() e mvaddstr()
 #define TEXT_LENGTH 256
+
+// Caminhos para os arquivos usados neste programa.
 #define MENU_PATH "./assets/tetris-menu.txt"
 #define INSTR_PATH "./assets/instrucoes.txt"
 #define CRED_PATH "./assets/creditos.txt"
 #define GAMEUI_PATH "./assets/game-ui.txt"
+
+// Isso é usado para definir a cor laranja com a init_color() mais tarde.
 #define COLOR_ORANGE 8
 
+// Estrutura usada para armazenar algumas posições de referência em relação à origem da tela.
 typedef struct {
 	int x;
 	int y;
@@ -19,16 +27,18 @@ typedef struct {
 
 //Protótipos:
 void initColors();
-void colorMenuLogo(coord_t *center, coord_t *offset);
-void colorGameUI(char matrizJogo[][GAME_W + 1], coord_t *center, coord_t *offset);
-void printFileCentered(FILE *fp, coord_t *center, coord_t *offset, coord_t *prevOffset);
-void loopJogo(FILE *gameUI, coord_t *center, coord_t *offset, coord_t *prevOffset);
+int calculateOffset(FILE *fp, coord_t *center, coord_t *offset);
+void colorMenuLogo(coord_t *offset);
+void colorGameUI(coord_t *offset);
+void fillGameUiInfo(char matrizJogo[GAME_H][GAME_W + 1], char proximaPeca[4][4], int *score, int *level, int *totalLines, coord_t *offset);
+void printFileCentered(FILE *fp, coord_t *offset);
+void loopJogo(FILE *gameUI, coord_t *center, coord_t *offset);
 
 int main() {
-	char select; // Variável para o seletor do menu
+	char select;					   // Variável para o seletor do menu
 	FILE *tetrisMenu, *instrucoes, *creditos, *gameUI; // Arquivos a serem usados
-	coord_t scrCenter, cursOffset, prevCursOffset; // Variáveis para calcular o centro da tela
-	setlocale(LC_ALL, ""); // Define o locale do programa para o locale do sistema
+	coord_t scrCenter, cursOffset;			   // Variáveis para calcular o centro da tela
+	setlocale(LC_ALL, "");				   // Define o locale do programa para o locale do sistema.
 
 	// Verifica se não houve erros ao abrir os arquivos das telas de título,
 	// de instruções ou de créditos
@@ -50,35 +60,39 @@ int main() {
 	}
 
 	// Inicializa a janela ncurses com alguns parâmetros
-	initscr(); noecho(); curs_set(0); start_color();
+	initscr(); noecho(); curs_set(0);
 
 	// Define as cores e os pares de cores que serão usados ao longo do programa
-	initColors();
+	start_color(); initColors();
 
 	do {
 		// Mostra o menu principal centralizado na tela
-		printFileCentered(tetrisMenu, &scrCenter, &cursOffset, &prevCursOffset);
-		colorMenuLogo(&scrCenter, &cursOffset);
+		if(calculateOffset(tetrisMenu, &scrCenter, &cursOffset)) {
+			printFileCentered(tetrisMenu, &cursOffset);
+			colorMenuLogo(&cursOffset);
+		}
 		refresh();
 
 		// Seletor do menu principal
 		select = getch();
 		switch(select) {
 			case 'p':
-				// Lógica principal do jogo
-				loopJogo(gameUI, &scrCenter, &cursOffset, &prevCursOffset);
+				// Lógica principal do jogo:
+				loopJogo(gameUI, &scrCenter, &cursOffset);
 				break;
 			case 'i':
-				do {
-					printFileCentered(instrucoes, &scrCenter, &cursOffset, &prevCursOffset);
+				do { // Tela de instruções:
+					if(calculateOffset(instrucoes, &scrCenter, &cursOffset))
+						printFileCentered(instrucoes, &cursOffset);
 					refresh();
 					select = getch();
 				} while(select != 'q');
 				select = 0;
 				break;
 			case 'c':
-				do {
-					printFileCentered(creditos, &scrCenter, &cursOffset, &prevCursOffset);
+				do { // Tela de créditos:
+					if(calculateOffset(creditos, &scrCenter, &cursOffset))
+						printFileCentered(creditos, &cursOffset);
 					refresh();
 					select = getch();
 				} while(select != 'q');
@@ -94,6 +108,7 @@ int main() {
 
 	// Finaliza a janela ncurses
 	endwin();
+
 	return 0;
 }
 
@@ -103,8 +118,8 @@ void initColors() {
 	 * Essa função configura todas as cores que o programa irá utilizar, além de definir
 	 * a cor laranja, que não é definida por padrão pela <curses.h>.
 	 *
-	 * Como esses valores são personalizados, eles não dependem do esquema de cores
-	 * do terminal atual.
+	 * Como esses valores são personalizados, eles não são afetados pelo
+	 * esquema de cores do terminal atual.
 	 */
 
 	init_color(COLOR_BLACK, 0, 0, 0);
@@ -117,13 +132,13 @@ void initColors() {
 	init_color(COLOR_BLUE, 50, 50, 900);
 	init_color(COLOR_MAGENTA, 750, 0, 850);
 
-	init_pair(1, COLOR_RED, COLOR_RED);
-	init_pair(2, COLOR_ORANGE, COLOR_ORANGE);
-	init_pair(3, COLOR_YELLOW, COLOR_YELLOW);
-	init_pair(4, COLOR_GREEN, COLOR_GREEN);
-	init_pair(5, COLOR_CYAN, COLOR_CYAN);
-	init_pair(6, COLOR_BLUE, COLOR_BLUE);
-	init_pair(7, COLOR_MAGENTA, COLOR_MAGENTA);
+	init_pair(1, COLOR_BLACK, COLOR_RED);
+	init_pair(2, COLOR_BLACK, COLOR_ORANGE);
+	init_pair(3, COLOR_BLACK, COLOR_YELLOW);
+	init_pair(4, COLOR_BLACK, COLOR_GREEN);
+	init_pair(5, COLOR_BLACK, COLOR_CYAN);
+	init_pair(6, COLOR_BLACK, COLOR_BLUE);
+	init_pair(7, COLOR_BLACK, COLOR_MAGENTA);
 	init_pair(8, COLOR_RED, COLOR_BLACK);
 	init_pair(9, COLOR_ORANGE, COLOR_BLACK);
 	init_pair(10, COLOR_YELLOW, COLOR_BLACK);
@@ -133,26 +148,22 @@ void initColors() {
 	init_pair(14, COLOR_MAGENTA, COLOR_BLACK);
 }
 
-void printFileCentered(FILE *fp, coord_t *center, coord_t *offset, coord_t *prevOffset) {
+int calculateOffset(FILE *fp, coord_t *center, coord_t *offset) {
 
 	/*
-	 * Essa função calcula o centro da janela atual e imprime o texto
-	 * de um arquivo. O texto é centralizado dinamicamente de acordo com
-	 * as dimensões do arquivo.
-	 *
-	 * A maneira como essa função é inserida no programa faz com que a interface
-	 * exibida permaneça centralizada o tempo todo, mesmo que o usuário mude o
-	 * tamanho da janela.
+	 * Essa função calcula a posição do cursor para que o texto exibido fique centralizado.
 	 */
 
-	char str[TEXT_LENGTH];	// String a ser usada pelo fgets() e pelo mvaddstr()
-	int largura = 0, altura = 0, l;	// "l" é uma variável de controle
-	center->x = COLS / 2; center->y = LINES / 2; // Armazena as coordenadas do centro da tela para mais tarde
+	char str[TEXT_LENGTH];				// String a ser usada pelo fgets().
+	int largura = 0, altura = 0, l;			// Variáveis para guardar as dimensões do arquivo.
+	center->x = COLS / 2; center->y = LINES / 2;	// Armazena as coordenadas do centro da tela para mais tarde.
+	coord_t prevOffset = *offset;			// Guardar a posição anterior do cursor.
 
 	while(fgets(str, TEXT_LENGTH, fp) == str) {
-		l = mbstowcs(NULL, str, TEXT_LENGTH); // Conta quantos caracteres multibyte cada linha tem.
-		largura = l > largura ? l : largura;  // Compara com o valor que já temos: se for maior, guarda.
-		++altura; // Incrementa o valor da altura
+		l = mbstowcs(NULL, str, TEXT_LENGTH);	// Conta quantos caracteres multibyte cada linha tem e guarda
+							// em uma variável intermediária.
+		largura = l > largura ? l : largura;	// Compara com o valor que já temos: se for maior, guarda.
+		++altura;				// Incrementa o valor da altura
 	}
 	rewind(fp);
 
@@ -163,19 +174,25 @@ void printFileCentered(FILE *fp, coord_t *center, coord_t *offset, coord_t *prev
 	if(offset->x < 0) offset->x = 0;
 	if(offset->y < 0) offset->y = 0;
 
-	// Verifica se a posição do cursor mudou para limpar a tela e "imprimir" o arquivo na tela de novo ou não.
-	// Ajuda a reduzir as piscadas na tela.
-	// Essa parte talvez vire sua própria função mais tarde.
-	if(offset->x != prevOffset->x || offset->y != prevOffset->y) {
-		clear();
-		for(int i = 0; fgets(str, TEXT_LENGTH, fp) == str; ++i)
-			mvaddstr(offset->y + i, offset->x, str);
-		rewind(fp);
-		*prevOffset = *offset;
-	}
+	if((offset->x != prevOffset.x) || (offset->y != prevOffset.y)) return 1;
+	else return 0;
+}
+void printFileCentered(FILE *fp, coord_t *offset) {
+
+	/*
+	 * Essa função imprime o texto de um arquivo. O texto é centralizado dinamicamente
+	 * de acordo com as dimensões do arquivo.
+	 */
+
+	char str[TEXT_LENGTH];
+
+	clear();
+	for(int i = 0; fgets(str, TEXT_LENGTH, fp) == str; ++i)
+		mvaddstr(offset->y + i, offset->x, str);
+	rewind(fp);
 }
 
-void colorMenuLogo(coord_t *center, coord_t *offset) {
+void colorMenuLogo(coord_t *offset) {
 
 	/*
 	 * Essa função colore as letras da logo do menu principal
@@ -197,34 +214,60 @@ void colorMenuLogo(coord_t *center, coord_t *offset) {
 	}
 }
 
-void colorGameUI(char matrizJogo[][GAME_W + 1], coord_t *center, coord_t *offset) {
+void colorGameUI(coord_t *offset) {
 
 	/*
 	 * O mesmo que a função anterior, mas para a interface do jogo.
 	 */
 
-	// Aqui dá para simplificar mais quando comparado à colorMenuLogo().
+	// Colorir a logo do Tetris na interface do jogo:
 	for(int i = 0; i < 3; ++i) {
 		for(int j = 0; j < 4; ++j)
-			mvchgat(offset->y + 3 + i, offset->x + 25 + 3*j, 3, WA_NORMAL, j + 8, NULL);
-		mvchgat(offset->y + 3 + i, offset->x + 37, 1, WA_NORMAL, 12, NULL);
-		mvchgat(offset->y + 3 + i, offset->x + 38, 3, WA_NORMAL, 14, NULL);
+			mvchgat(offset->y + 3 + i, offset->x + 23 + 3*j, 3, WA_NORMAL, j + 8, NULL);
+		mvchgat(offset->y + 3 + i, offset->x + 35, 1, WA_NORMAL, 12, NULL);
+		mvchgat(offset->y + 3 + i, offset->x + 36, 3, WA_NORMAL, 14, NULL);
+	}
+
+}
+
+void fillGameUiInfo(char matrizJogo[GAME_H][GAME_W + 1], char proximaPeca[4][4], int *score, int *level, int *totalLines, coord_t *offset) {
+
+	/*
+	 * Essa função lida com as informações presentes na interface (pontuação, linhas, próxima peça),
+	 * além de exibir a matriz principal de peças.
+	 */
+
+	// Pontuação, nível e linhas:
+	mvprintw(offset->y + 7, offset->x + 23, "%16d", *score);
+	mvprintw(offset->y + 10, offset->x + 23, "%5d", *level);
+	mvprintw(offset->y + 10, offset->x + 32, "%6d", *totalLines);
+
+	// Próxima peça:
+	for(int i = 0; i < 4; ++i) {
+		for(int j = 0; j < 4; ++j)
+			mvchgat(offset->y + 16 + i, offset->x + 29 + j, 1, WA_NORMAL, proximaPeca[i][j], NULL);
 	}
 
 	// Colorindo os blocos de acordo com os valores na matrizJogo
 	for(int i = 0; i < GAME_H; ++i) {
 		for(int j = 0; j < GAME_W; ++j)
-			mvchgat(offset->y + 3 + i, offset->x + 8 + j, 1, WA_NORMAL, matrizJogo[i][j], NULL);
+			mvchgat(offset->y + 3 + i, offset->x + 6 + j, 1, WA_NORMAL, matrizJogo[i][j], NULL);
 	}
 }
 
-void loopJogo(FILE *gameUI, coord_t *center, coord_t *offset, coord_t *prevOffset) {
-	char matrizJogo[GAME_H][GAME_W + 1] = {}, proximaPeca[4][4] = {}, ch;
+void loopJogo(FILE *gameUI, coord_t *center, coord_t *offset) {
 
 	/*
-	 * Esse primeiro conjunto de operações é só para definir uma matriz para demonstração.
-	 * Elas podem ser removidas quando a lógica real for colocadas aqui.
+	 * Os valores que estão aqui só servem para demonstração. No programa de verdade,
+	 * após toda a lógica ser feita, basta chamar as funções dentro do loop do-while
+	 * (exceto as duas últimas, possivelmente), fornecendo as variáveis correspondentes.
 	 */
+
+	char matrizJogo[GAME_H][GAME_W + 1] = {}, proximaPeca[4][4] = {}, ch;
+	int score = 69420, linhas = 21, nivel = 4;
+
+	proximaPeca[1][1] = 3; proximaPeca[1][2] = 3;
+	proximaPeca[2][1] = 3; proximaPeca[2][2] = 3;
 
 	matrizJogo[GAME_H - 3][0] = '\x06';
 	strcpy(&matrizJogo[GAME_H - 3][11], "\x02\x02");
@@ -234,9 +277,11 @@ void loopJogo(FILE *gameUI, coord_t *center, coord_t *offset, coord_t *prevOffse
 	strcpy(matrizJogo[GAME_H - 1], "\x05\x05\x05\x05\x01\x01\x07\x07\x07\x02\x02\x02\x02\x03\x03");
 	strcpy(&matrizJogo[2][5], "\x05\x05\x05\x05");
 
-	do { // Aqui é onde a mágica realmente acontece
-		printFileCentered(gameUI, center, offset, prevOffset);
-		colorGameUI(matrizJogo, center, offset);
+	do { // Aqui é onde a mágica realmente acontece:
+		if(calculateOffset(gameUI, center, offset))
+			printFileCentered(gameUI,  offset);
+		colorGameUI(offset);
+		fillGameUiInfo(matrizJogo, proximaPeca, &score, &nivel, &linhas, offset);
 		refresh();
 		ch = 0;
 		ch = getch();
