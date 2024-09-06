@@ -15,11 +15,12 @@ void rotacionarPeca(char peca[TAMP][TAMP], int cor);
 int sorteioPeca(int *inicial, int *cor2, char peca[TAMP][TAMP], char peca2[TAMP][TAMP], char p1[TAMP][TAMP], char p2[TAMP][TAMP], char p3[TAMP][TAMP], char p4[TAMP][TAMP], char p5[TAMP][TAMP], char p6[TAMP][TAMP], char p7[TAMP][TAMP]);
 void defPeca(char p1[TAMP][TAMP], char p2[TAMP][TAMP], char p3[TAMP][TAMP], char p4[TAMP][TAMP], char p5[TAMP][TAMP], char p6[TAMP][TAMP], char p7[TAMP][TAMP]);
 void lixo(char borda[LINB][COLB], int corBorda[LINB][COLB]);
-int mostra(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], int perd, int* score);
+int mostra(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], int perd, int* score,int* alinhas);
 void defBorda(char borda[LINB][COLB]);
-void moverPeca(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], char peca[TAMP][TAMP], int perd, int* score);
-void linhaCompleta(char borda[LINB][COLB], int* score);
-void removerLinha(int end, char borda[LINB][COLB], int* score);
+void moverPeca(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], char peca[TAMP][TAMP], int perd, int* score, int *alinhas);
+void linhaCompleta(char borda[LINB][COLB], int* score, int* alinhas);
+void removerLinha(int end, char borda[LINB][COLB]);
+int pontuacao(int clinhas, char borda[LINB][COLB], int* score);
 void inic_ncurses();
 void proximaPeca(char peca2[TAMP][TAMP], int cor2);
 void limpa_proximaPeca(char peca2[TAMP][TAMP]);
@@ -36,15 +37,15 @@ int main() {
     defBorda(borda);
     defPeca(p1, p2, p3, p4, p5, p6, p7);
     int perd = 1, inicial = 0;
-    int score = 0;
+    int score = 0, alinhas= 0;
     while (perd) {
         borda_proximaPeca();
-        linhaCompleta(borda, &score);
+        linhaCompleta(borda, &score, &alinhas);
         cor = sorteioPeca(&inicial, &cor2, peca, peca2, p1, p2, p3, p4, p5, p6, p7);
         proximaPeca(peca2, cor2);
-        mostra(corBorda, cor, borda, perd, &score);
-        moverPeca(corBorda, cor, borda, peca, perd, &score);
-        perd = mostra(corBorda, cor, borda, perd, &score);
+        mostra(corBorda, cor, borda, perd, &score,&alinhas);
+        moverPeca(corBorda, cor, borda, peca, perd, &score,&alinhas);
+        perd = mostra(corBorda, cor, borda, perd, &score,&alinhas);
         limpa_proximaPeca(peca2);
     }
     usleep(2000000);
@@ -65,7 +66,7 @@ void defBorda(char borda[LINB][COLB]) {
     }
 }
 
-int mostra(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], int perd, int* score) {
+int mostra(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], int perd, int* score,int* alinhas) {
     for (int j = 1; j <= COLB-1; j++) {
         if (borda[1][j] == '#')
             return 0;
@@ -89,6 +90,7 @@ int mostra(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], int perd, 
         printw("\n");
     }
     printw ("\nscore: %d\n", *score);
+    printw ("linhas apagadas:%d\n",*alinhas);
     return 1;
 }
 
@@ -186,7 +188,7 @@ int checarColisao(char borda[LINB][COLB], char peca[TAMP][TAMP], int posX, int p
     return 0;
 }
 
-void moverPeca(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], char peca[TAMP][TAMP], int perd, int* score) {
+void moverPeca(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], char peca[TAMP][TAMP], int perd, int* score, int* alinhas) {
     int posX = 1;
     int posY = (COLB / 2) - 1;
     int colidiu;
@@ -271,9 +273,10 @@ void moverPeca(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], char p
             refresh();
         else
             usleep(120000 - vel);
-        mostra(corBorda, cor, borda, perd, score);
+        mostra(corBorda, cor, borda, perd, score, alinhas);
     }
 }
+
 
 void rotacionarPeca(char peca[TAMP][TAMP], int cor) {
     char temp[TAMP][TAMP];
@@ -328,7 +331,7 @@ void rotacionarPeca(char peca[TAMP][TAMP], int cor) {
     }
 }
 
-void linhaCompleta(char borda[LINB][COLB], int* score) {
+void linhaCompleta(char borda[LINB][COLB], int* score,int* alinhas){
     int clinhas = 0;
     for (int i = 1; i < LINB - 1; i++) {
         int val = 1;
@@ -340,13 +343,18 @@ void linhaCompleta(char borda[LINB][COLB], int* score) {
         }
         if (val) {
 	    clinhas++;
-            removerLinha(i, borda, score);
+            removerLinha(i, borda);
         }
     }
-    *score += clinhas*100;
+    switch (clinhas) {
+	case 1: *score += (clinhas*100);     *alinhas+=(clinhas);  break;
+	case 2: *score += (clinhas*100)+100; *alinhas+=(clinhas);  break;
+	case 3: *score += (clinhas*100)+200; *alinhas+=(clinhas);  break;
+	case 4: *score += (clinhas*100)+400; *alinhas+=(clinhas);  break;
+    }	
 }
 
-void removerLinha(int end, char borda[LINB][COLB], int* score) {
+void removerLinha(int end, char borda[LINB][COLB]) {
     for (int i = end; i > 1; i--) {
         for (int j = 1; j < COLB - 1; j++) {
             borda[i][j] = borda[i - 1][j];
