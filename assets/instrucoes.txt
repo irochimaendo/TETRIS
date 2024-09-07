@@ -19,6 +19,6 @@
 ║    chegar ao topo da tela.                                           ║
 ║                                                                      ║
 ║                                                                      ║
-║                    Pressione 'q' para voltar.                        ║
+║                     Pressione 'q' para voltar.                       ║
 ║                                                                      ║
 ╚══════════════════════════════════════════════════════════════════════╝
