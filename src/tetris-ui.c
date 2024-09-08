@@ -70,15 +70,14 @@ int sorteioPeca(int *inicial, int *cor2, peca_ap *peca, pecas *pecas_tetris);
 int checarColisao(borda *bordaJogo, peca_ap *peca, coord *coord_);
 void defPeca(pecas *pecas_tetris);
 void lixo(borda *bordaJogo);
-int mostra(borda *bordaJogo, info *jogoInfo);
+int check(borda *bordaJogo, info *jogoInfo);
 void defBorda(borda *bordaJogo);
 void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, coord_t *center, coord_t *offset, int *cor2, char *ch);
 void linhaCompleta(borda *bordaJogo, info *jogoInfo);
 void removerLinha(int end, borda *bordaJogo);
 void inic_ncurses();
 void proximaPeca(peca_ap *peca, int cor2);
-void limpa_proximaPeca();
-void borda_proximaPeca();
+void ajuste(peca_ap *peca, coord *ajustePeca);
 
 int main() {
 	char select;					   // Variável para o seletor do menu
@@ -110,7 +109,7 @@ int main() {
 	cbreak(); keypad(stdscr, TRUE); nodelay(stdscr, TRUE);
 
 	// Verifica se o terminal tem suporte a cores e a redefinição de cores.
-	// Ambos os recursos são usados para gerar e mostrar as cores personalizadas usadas aqui.
+	// Ambos os recursos são usados para gerar e checkr as cores personalizadas usadas aqui.
 	if(!(has_colors() && can_change_color())) {
 		endwin();
 		fclose(tetrisMenu); fclose(instrucoes); fclose(creditos); fclose(gameUI);
@@ -122,7 +121,7 @@ int main() {
 	initColors();
 
 	do {
-		// Mostra o menu principal centralizado na tela
+		// check o menu principal centralizado na tela
 		if(calculateOffset(tetrisMenu, &scrCenter, &cursOffset)) {
 			printFileCentered(tetrisMenu, &cursOffset);
 			colorMainMenu(&cursOffset);
@@ -382,12 +381,13 @@ void loopJogo(FILE *gameUI, coord_t *center, coord_t *offset) {
     pecas pecas_tetris;
     peca_ap peca;
     info jogoInfo = {1, 0, 0, 200000};
-    int cor2; char ch;
+    coord ajustePeca;
+    int cor2; char ch = 0;
     lixo(&bordaJogo);
     defBorda(&bordaJogo);
     defPeca(&pecas_tetris);
     int gameOver = 0, inicial = 0;
-    while (!gameOver || ch == 'q') {
+    while (!gameOver) {
 		refresh();
         linhaCompleta(&bordaJogo, &jogoInfo);
         bordaJogo.cor = sorteioPeca(&inicial, &cor2, &peca, &pecas_tetris);
@@ -395,10 +395,11 @@ void loopJogo(FILE *gameUI, coord_t *center, coord_t *offset) {
 			printFileCentered(gameUI,  offset);
 		colorGameUI(offset);
 		fillGameUiInfo(&bordaJogo, &peca, &jogoInfo, offset, &cor2);
-        mostra(&bordaJogo, &jogoInfo);
+        check(&bordaJogo, &jogoInfo);
+        ajuste(&peca, &ajustePeca);
         moverPeca(&bordaJogo, &peca, &jogoInfo, gameUI, center, offset, &cor2, &ch);
-        gameOver = mostra(&bordaJogo, &jogoInfo);
-        limpa_proximaPeca(&peca);
+        if (ch == 'q') break;
+        gameOver = check(&bordaJogo, &jogoInfo);
     }
     endwin();
 }
@@ -416,7 +417,7 @@ void defBorda(borda *bordaJogo) {
     }
 }
 
-int mostra(borda *bordaJogo, info *jogoInfo) {
+int check(borda *bordaJogo, info *jogoInfo) {
     for (int j = 1; j <= COLB-1; j++) {
         if (bordaJogo->borda[1][j] == '#')
             return 1;
@@ -516,6 +517,7 @@ int checarColisao(borda *bordaJogo, peca_ap *peca, coord *coord_temp) {
 void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, coord_t *center, coord_t *offset, int *cor2, char *ch) {
     coord coord_, coord_temp;
     coord_.posX = 1; coord_.posY = (COLB / 2) - 1;
+    ajuste(peca, &coord_);
     int colidiu, tempo = 0;
     while (1) {
         int teclou = 0;
@@ -567,13 +569,18 @@ void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, co
                 break;
             case ' ':
                 while (1) {
-                    if (tecla == getch())
+                    tecla = tolower(getch());
+                    if (tecla == ' ')
                         break;
+                    if (tecla == 'q') {
+                        *ch = 'q';
+                        break;
+                    }
                 }
                 teclou = 1;
                 break;
 			case 'q': case 'Q':
-				*ch = tolower(tecla);
+				*ch = 'q';
 				break;
         }
 		if (*ch == 'q')
@@ -614,7 +621,7 @@ void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, co
 			printFileCentered(gameUI,  offset);
 		colorGameUI(offset);
 		fillGameUiInfo(bordaJogo, peca, jogoInfo, offset, cor2);
-        mostra(bordaJogo, jogoInfo);
+        check(bordaJogo, jogoInfo);
     }
 }
 
@@ -704,10 +711,15 @@ void removerLinha(int end, borda *bordaJogo) {
         }
     }
 }    
-
-void limpa_proximaPeca() {
+void ajuste(peca_ap *peca, coord *ajustePeca) {
+    int min = TAMP;
     for (int i = 0; i < TAMP; i++) {
-        for (int j = 0; j< TAMP; j++)
-                mvaddch(i + 4, j + 15, ' ');
+        for (int j = 0; j < TAMP; j++) {
+            if (peca->peca1[i][j] == '#') {
+                if (i < min)
+                    min = i;
+            }
+        }
     }
+    ajustePeca->posX = ajustePeca->posX - min;
 }
