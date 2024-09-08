@@ -20,7 +20,6 @@ void defBorda(char borda[LINB][COLB]);
 void moverPeca(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], char peca[TAMP][TAMP], int perd, int* score, int *alinhas);
 void linhaCompleta(char borda[LINB][COLB], int* score, int* alinhas);
 void removerLinha(int end, char borda[LINB][COLB]);
-int pontuacao(int clinhas, char borda[LINB][COLB], int* score);
 void inic_ncurses();
 void proximaPeca(char peca2[TAMP][TAMP], int cor2);
 void limpa_proximaPeca(char peca2[TAMP][TAMP]);
