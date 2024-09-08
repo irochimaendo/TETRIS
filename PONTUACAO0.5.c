@@ -210,6 +210,7 @@ void moverPeca(int corBorda[LINB][COLB], int cor, char borda[LINB][COLB], char p
                 if (!checarColisao(borda, peca, posX + 1, posY)) {
                     posX++;
                     teclou = 1;
+		    *score += 1;
                 }
                 break;
             case 'a': 
