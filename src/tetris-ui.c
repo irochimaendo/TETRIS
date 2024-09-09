@@ -1,12 +1,19 @@
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <curses.h>
 #include <locale.h>
 #include <ctype.h>
+#include <time.h>
 
 // Dimensões da matriz onde os tetraminós vão ser empilhados.
 #define GAME_W 15
 #define GAME_H 18
+
+#define TAMP 4
+#define LINB 19
+#define COLB 16
+#define VELOCIDADE 50
 
 // Usado por fgets() e mvaddstr()
 #define TEXT_LENGTH 256
@@ -33,16 +40,44 @@ typedef struct {
 	int x;
 	int y;
 } coord_t;
-
+typedef struct {
+    char p1[TAMP][TAMP]; char p2[TAMP][TAMP]; char p3[TAMP][TAMP]; char p4[TAMP][TAMP];
+    char p5[TAMP][TAMP]; char p6[TAMP][TAMP]; char p7[TAMP][TAMP];
+} pecas;
+typedef struct {
+    char borda[LINB][COLB]; int corBorda[LINB][COLB]; int cor; 
+} borda;
+typedef struct {
+        int posX; int posY;
+} coord;
+typedef struct {
+    char peca1[TAMP][TAMP]; char peca2[TAMP][TAMP];
+} peca_ap;
+typedef struct {
+    int nivel; int score; int alinhas; int vel;
+} info;
 //Protótipos:
 void initColors();
 int calculateOffset(FILE *fp, coord_t *center, coord_t *offset);
 void colorMainMenu(coord_t *offset);
 void colorInstructions(coord_t *offset);
 void colorGameUI(coord_t *offset);
-void fillGameUiInfo(char matrizJogo[GAME_H][GAME_W + 1], char proximaPeca[4][4], int *score, int *level, int *totalLines, coord_t *offset);
+void fillGameUiInfo(borda *bordaJogo, peca_ap *peca, info *jogoInfo, coord_t *offset, int *cor2);
 void printFileCentered(FILE *fp, coord_t *offset);
 void loopJogo(FILE *gameUI, coord_t *center, coord_t *offset);
+void rotacionarPeca(peca_ap *peca, borda *bordaJogo);
+int sorteioPeca(int *inicial, int *cor2, peca_ap *peca, pecas *pecas_tetris);
+int checarColisao(borda *bordaJogo, peca_ap *peca, coord *coord_);
+void defPeca(pecas *pecas_tetris);
+void lixo(borda *bordaJogo);
+int check(borda *bordaJogo, info *jogoInfo);
+void defBorda(borda *bordaJogo);
+void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, coord_t *center, coord_t *offset, int *cor2, char *ch);
+void linhaCompleta(borda *bordaJogo, info *jogoInfo);
+void removerLinha(int end, borda *bordaJogo);
+void inic_ncurses();
+void proximaPeca(peca_ap *peca, int cor2);
+void ajuste(peca_ap *peca, coord *ajustePeca);
 
 int main() {
 	char select;					   // Variável para o seletor do menu
@@ -70,10 +105,11 @@ int main() {
 	}
 
 	// Inicializa a janela ncurses com alguns parâmetros
-	initscr(); noecho(); curs_set(0); start_color();
+	initscr(); noecho(); curs_set(0); start_color(); 
+	cbreak(); keypad(stdscr, TRUE); nodelay(stdscr, TRUE);
 
 	// Verifica se o terminal tem suporte a cores e a redefinição de cores.
-	// Ambos os recursos são usados para gerar e mostrar as cores personalizadas usadas aqui.
+	// Ambos os recursos são usados para gerar e checkr as cores personalizadas usadas aqui.
 	if(!(has_colors() && can_change_color())) {
 		endwin();
 		fclose(tetrisMenu); fclose(instrucoes); fclose(creditos); fclose(gameUI);
@@ -85,7 +121,7 @@ int main() {
 	initColors();
 
 	do {
-		// Mostra o menu principal centralizado na tela
+		// check o menu principal centralizado na tela
 		if(calculateOffset(tetrisMenu, &scrCenter, &cursOffset)) {
 			printFileCentered(tetrisMenu, &cursOffset);
 			colorMainMenu(&cursOffset);
@@ -297,61 +333,393 @@ void colorGameUI(coord_t *offset) {
 	mvchgat(offset->y + 13, offset->x + 25, 12, WA_BOLD, 19, NULL);
 }
 
-void fillGameUiInfo(char matrizJogo[GAME_H][GAME_W + 1], char proximaPeca[4][4], int *score, int *level, int *totalLines, coord_t *offset) {
-
+void fillGameUiInfo(borda *bordaJogo, peca_ap *peca, info *jogoInfo, coord_t *offset, int *cor2) {
 	/*
 	 * Essa função lida com as informações presentes na interface (pontuação, linhas, próxima peça),
 	 * além de exibir a matriz principal de peças.
 	 */
 
 	// Pontuação, nível e linhas:
-	mvprintw(offset->y + 7, offset->x + 23, "%16d", *score);
-	mvprintw(offset->y + 10, offset->x + 23, "%5d", *level);
-	mvprintw(offset->y + 10, offset->x + 32, "%6d", *totalLines);
+	mvprintw(offset->y + 7, offset->x + 23, "%16d", jogoInfo->score);
+	mvprintw(offset->y + 10, offset->x + 23, "%5d", jogoInfo->nivel);
+	mvprintw(offset->y + 10, offset->x + 32, "%6d", jogoInfo->alinhas);
 
 	// Próxima peça:
-	for(int i = 0; i < 4; ++i) {
-		for(int j = 0; j < 4; ++j)
-			mvchgat(offset->y + 16 + i, offset->x + 29 + j, 1, WA_NORMAL, proximaPeca[i][j], NULL);
+	for (int i = 0; i < TAMP; i++) {
+        for (int j = 0; j< TAMP; j++)
+                mvaddch(offset->y + 16 + i, offset->x + 29 + j, ' ');
+    }
+	for(int i = 0; i < TAMP; ++i) {
+		for(int j = 0; j < TAMP; ++j) {
+			if (peca->peca2[i][j] == '#') {
+				int k = (*cor2 == 5) ? i-1 : i;
+				int l = (*cor2 == 3) ? j+1 : j;
+				attron(COLOR_PAIR(*cor2));
+				mvaddch(offset->y + 17 + k, offset->x + 29 + l, ACS_CKBOARD);
+				attroff(COLOR_PAIR(*cor2));
+			}
+		}
 	}
-
 	// Colorindo os blocos de acordo com os valores na matrizJogo
 	for(int i = 0; i < GAME_H; ++i) {
-		for(int j = 0; j < GAME_W; ++j)
-			mvchgat(offset->y + 3 + i, offset->x + 6 + j, 1, WA_NORMAL, matrizJogo[i][j], NULL);
+		for(int j = 0; j < GAME_W; ++j) {
+			if (bordaJogo->borda[i][j] == '#') {
+				attron(COLOR_PAIR(bordaJogo->corBorda[i][j]));
+				mvaddch(offset->y + 3 + i, offset->x + 6 + j, ACS_CKBOARD);
+				attroff(COLOR_PAIR(bordaJogo->corBorda[i][j]));
+			}
+			else
+				mvaddch(offset->y + 3 + i, offset->x + 6 + j, ' ');
+		}
 	}
 }
 
 void loopJogo(FILE *gameUI, coord_t *center, coord_t *offset) {
 
-	/*
-	 * Os valores que estão aqui só servem para demonstração. No programa de verdade,
-	 * após toda a lógica ser feita, basta chamar as funções dentro do loop do-while
-	 * (exceto as duas últimas, possivelmente), fornecendo as variáveis correspondentes.
-	 */
-
-	char matrizJogo[GAME_H][GAME_W + 1] = {}, proximaPeca[4][4] = {}, ch;
-	int score = 69420, linhas = 21, nivel = 4;
-
-	proximaPeca[1][1] = 3; proximaPeca[1][2] = 3;
-	proximaPeca[2][1] = 3; proximaPeca[2][2] = 3;
-
-	matrizJogo[GAME_H - 3][0] = '\x06';
-	strcpy(&matrizJogo[GAME_H - 3][11], "\x02\x02");
-	strcpy(&matrizJogo[GAME_H - 2][0], "\x06\x06\x06\x01\x01");
-	matrizJogo[GAME_H - 2][7] = '\x07';
-	strcpy(&matrizJogo[GAME_H - 2][11], "\x02\x02\x03\x03");
-	strcpy(matrizJogo[GAME_H - 1], "\x05\x05\x05\x05\x01\x01\x07\x07\x07\x02\x02\x02\x02\x03\x03");
-	strcpy(&matrizJogo[2][5], "\x05\x05\x05\x05");
-
-	do { // Aqui é onde a mágica realmente acontece:
+	srand(time(NULL));
+	borda bordaJogo;
+    pecas pecas_tetris;
+    peca_ap peca;
+    info jogoInfo = {1, 0, 0, 200000};
+    coord ajustePeca;
+    int cor2; char ch = 0;
+    lixo(&bordaJogo);
+    defBorda(&bordaJogo);
+    defPeca(&pecas_tetris);
+    int gameOver = 0, inicial = 0;
+    while (!gameOver) {
+		refresh();
+        linhaCompleta(&bordaJogo, &jogoInfo);
+        bordaJogo.cor = sorteioPeca(&inicial, &cor2, &peca, &pecas_tetris);
 		if(calculateOffset(gameUI, center, offset))
 			printFileCentered(gameUI,  offset);
 		colorGameUI(offset);
-		fillGameUiInfo(matrizJogo, proximaPeca, &score, &nivel, &linhas, offset);
-		refresh();
-		ch = 0;
-		ch = getch();
-		ch = tolower(ch);
-	} while(ch != 'q');
+		fillGameUiInfo(&bordaJogo, &peca, &jogoInfo, offset, &cor2);
+        check(&bordaJogo, &jogoInfo);
+        ajuste(&peca, &ajustePeca);
+        moverPeca(&bordaJogo, &peca, &jogoInfo, gameUI, center, offset, &cor2, &ch);
+        if (ch == 'q') break;
+        gameOver = check(&bordaJogo, &jogoInfo);
+    }
+    endwin();
+}
+
+void defBorda(borda *bordaJogo) {
+    for (int i = 0; i < LINB; i++) {
+        for (int j = 0; j < COLB; j++) {
+            if (i == 0 || i == LINB - 1)
+                bordaJogo->borda[i][j] = '-';
+            else if (j == 0 || j == COLB - 1)
+                bordaJogo->borda[i][j] = '|';
+            else
+                bordaJogo->borda[i][j] = ' ';
+        }
+    }
+}
+
+int check(borda *bordaJogo, info *jogoInfo) {
+    for (int j = 1; j <= COLB-1; j++) {
+        if (bordaJogo->borda[1][j] == '#')
+            return 1;
+    }
+    return 0;
+}
+
+void lixo(borda *bordaJogo) {
+    for (int i = 0; i < LINB; i++) {
+        for (int j = 0; j < COLB; j++) {
+            bordaJogo->borda[i][j] = ' ';
+            bordaJogo->corBorda[i][j] = 0;
+        }
+    }
+}
+
+void defPeca(pecas *pecas_tetris) {
+    for (int i = 0; i < TAMP; i++) {
+        for (int j = 0; j < TAMP; j++) {
+            pecas_tetris->p1[i][j] = ' ';
+            pecas_tetris->p2[i][j] = ' ';
+            pecas_tetris->p3[i][j] = ' ';
+            pecas_tetris->p4[i][j] = ' ';
+            pecas_tetris->p5[i][j] = ' ';
+            pecas_tetris->p6[i][j] = ' ';
+            pecas_tetris->p7[i][j] = ' ';
+        }
+    }
+    pecas_tetris->p1[2][0] = pecas_tetris->p1[2][1] = pecas_tetris->p1[2][2] = pecas_tetris->p1[2][3] = '#';
+    pecas_tetris->p2[0][0] = pecas_tetris->p2[1][0] = pecas_tetris->p2[1][1] = pecas_tetris->p2[1][2] = '#';
+    pecas_tetris->p3[1][0] = pecas_tetris->p3[1][1] = pecas_tetris->p3[1][2] = pecas_tetris->p3[0][2] = '#';
+    pecas_tetris->p4[0][0] = pecas_tetris->p4[1][0] = pecas_tetris->p4[0][1] = pecas_tetris->p4[1][1] = '#';
+    pecas_tetris->p5[0][1] = pecas_tetris->p5[1][1] = pecas_tetris->p5[0][2] = pecas_tetris->p5[1][0] = '#';
+    pecas_tetris->p6[1][0] = pecas_tetris->p6[1][1] = pecas_tetris->p6[1][2] = pecas_tetris->p6[0][1] = '#';
+    pecas_tetris->p7[0][1] = pecas_tetris->p7[0][0] = pecas_tetris->p7[1][1] = pecas_tetris->p7[1][2] = '#';
+}
+
+int sorteioPeca(int *inicial, int *cor2, peca_ap *peca, pecas *pecas_tetris) {
+    static int k = 0, k2 = 0;
+    if (!(*inicial)) {
+        k = 1 + rand() % 7;
+        k2 = 1 + rand() % 7;
+        *inicial = 1;
+    }
+    else {
+        k = k2;
+        k2 = 1 + rand() % 7;
+    }
+    int cor, corProx;
+    char (*pecaEscolhida)[TAMP] = NULL;
+    switch (k) {
+        case 1: pecaEscolhida = pecas_tetris->p1; cor = 5; break;  
+        case 2: pecaEscolhida = pecas_tetris->p2; cor = 6; break;  
+        case 3: pecaEscolhida = pecas_tetris->p3; cor = 2; break;  
+        case 4: pecaEscolhida = pecas_tetris->p4; cor = 3; break;  
+        case 5: pecaEscolhida = pecas_tetris->p5; cor = 4; break;  
+        case 6: pecaEscolhida = pecas_tetris->p6; cor = 7; break;  
+        case 7: pecaEscolhida = pecas_tetris->p7; cor = 1; break;  
+    }
+    if (pecaEscolhida != NULL) {
+        for (int i = 0; i < TAMP; i++) {
+            for (int j = 0; j < TAMP; j++)
+                peca->peca1[i][j] = pecaEscolhida[i][j];
+        }
+    }
+    k = k2;
+    char (*proxPeca)[TAMP] = NULL;
+    switch (k2) {
+        case 1: proxPeca = pecas_tetris->p1; corProx = 5; break;  
+        case 2: proxPeca = pecas_tetris->p2; corProx = 6; break;  
+        case 3: proxPeca = pecas_tetris->p3; corProx = 2; break;  
+        case 4: proxPeca = pecas_tetris->p4; corProx = 3; break;  
+        case 5: proxPeca = pecas_tetris->p5; corProx = 4; break;  
+        case 6: proxPeca = pecas_tetris->p6; corProx = 7; break;  
+        case 7: proxPeca = pecas_tetris->p7; corProx = 1; break;  
+    }
+    *cor2 = corProx;
+    if (proxPeca != NULL) {
+        for (int i = 0; i < TAMP; i++) {
+            for (int j = 0; j < TAMP; j++)
+                peca->peca2[i][j] = proxPeca[i][j];
+        }
+    }
+    return cor;
+}
+
+int checarColisao(borda *bordaJogo, peca_ap *peca, coord *coord_temp) {
+    for (int i = 0; i < TAMP; i++) {
+        for (int j = 0; j < TAMP; j++) {
+                if (peca->peca1[i][j] == '#' && (coord_temp->posX + i >= LINB - 1 || coord_temp->posX + i < 1 || coord_temp->posY + j >= COLB - 1 || coord_temp->posY + j < 1 || bordaJogo->borda[coord_temp->posX + i][coord_temp->posY + j] == '#'))
+                    return 1;
+        }
+    }
+    return 0;
+}
+
+void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, coord_t *center, coord_t *offset, int *cor2, char *ch) {
+    coord coord_, coord_temp;
+    coord_.posX = 1; coord_.posY = (COLB / 2) - 1;
+    ajuste(peca, &coord_);
+    int colidiu, tempo = 0;
+    while (1) {
+        int teclou = 0;
+        for (int i = 0; i < TAMP; i++) {
+            for (int j = 0; j < TAMP; j++) {
+                    if (peca->peca1[i][j] == '#' && coord_.posX + i < LINB && coord_.posY + j < COLB && coord_.posX + i >= 0 && coord_.posY + j >= 0)
+                        bordaJogo->borda[coord_.posX + i][coord_.posY + j] = ' ';
+            }
+        }
+        int tecla = getch(); 
+        switch (tecla) {
+            case 's': case 'S': case KEY_DOWN:
+            coord_temp = (coord){coord_.posX + 1, coord_.posY};
+                if (!checarColisao(bordaJogo, peca, &coord_temp)) {
+                    coord_.posX = coord_temp.posX;
+                    teclou = 1;
+                }
+                break;
+            case 'a':  case 'A': case KEY_LEFT:
+            coord_temp = (coord){coord_.posX, coord_.posY - 1};
+                if (!checarColisao(bordaJogo, peca, &coord_temp)) {
+                    coord_.posY = coord_temp.posY;
+                    teclou = 1;
+                }
+                break;
+            case 'd': case 'D': case KEY_RIGHT:
+            coord_temp = (coord){coord_.posX, coord_.posY + 1};
+                if (!checarColisao(bordaJogo, peca, &coord_temp)) {
+                    coord_.posY = coord_temp.posY;
+                    teclou = 1;
+                }
+                break;
+            case 'r': case 'R':
+                rotacionarPeca(peca, bordaJogo);
+                if (checarColisao(bordaJogo, peca, &coord_) || bordaJogo->cor == 3) {
+                    for (int i = 0; i < 3; i++)
+                        rotacionarPeca(peca, bordaJogo);
+                }
+                teclou = 1;
+                break;
+            case 'x': case 'X':
+                while (1) {
+                    coord_temp = (coord){coord_.posX + 1, coord_.posY};
+                    if (checarColisao(bordaJogo, peca, &coord_temp))
+                        break;
+                    coord_.posX = coord_temp.posX;
+                }
+                teclou = 1;
+                break;
+            case ' ':
+                while (1) {
+                    tecla = tolower(getch());
+                    if (tecla == ' ')
+                        break;
+                    if (tecla == 'q') {
+                        *ch = 'q';
+                        break;
+                    }
+                }
+                teclou = 1;
+                break;
+			case 'q': case 'Q':
+				*ch = 'q';
+				break;
+        }
+		if (*ch == 'q')
+			break;
+        if (tempo >= VELOCIDADE) {
+            coord_.posX++;
+            colidiu = checarColisao(bordaJogo, peca, &coord_);
+            if (colidiu) {
+                coord_.posX--;
+                for (int i = 0; i < TAMP; i++) {
+                    for (int j = 0; j < TAMP; j++) {
+                        if (peca->peca1[i][j] == '#' && coord_.posX + i < LINB && coord_.posY + j < COLB && coord_.posX + i >= 0 && coord_.posY + j >= 0) {
+                            bordaJogo->borda[coord_.posX + i][coord_.posY + j] = peca->peca1[i][j];
+                            bordaJogo->corBorda[coord_.posX + i][coord_.posY + j] = bordaJogo->cor;
+                            }
+                    }
+                }
+                break;
+            }
+            tempo = 0;
+        } else {
+            tempo += 10;
+        }
+        for (int i = 0; i < TAMP; i++) {
+            for (int j = 0; j < TAMP; j++) {
+                if (peca->peca1[i][j] == '#' && peca->peca1[i][j] == '#' && coord_.posX + i < LINB && coord_.posY + j < COLB && coord_.posX + i >= 0 && coord_.posY + j >= 0) {
+                    bordaJogo->borda[coord_.posX + i][coord_.posY + j] = peca->peca1[i][j];
+                    bordaJogo->corBorda[coord_.posX + i][coord_.posY + j] = bordaJogo->cor;
+                }
+            }
+        }
+        if (teclou || colidiu) {
+            refresh();
+		}
+        else
+            usleep(jogoInfo->vel);
+		if(calculateOffset(gameUI, center, offset))
+			printFileCentered(gameUI,  offset);
+		colorGameUI(offset);
+		fillGameUiInfo(bordaJogo, peca, jogoInfo, offset, cor2);
+        check(bordaJogo, jogoInfo);
+    }
+}
+
+void rotacionarPeca(peca_ap *peca, borda *bordaJogo) {
+    char temp[TAMP][TAMP];
+    int pont = (TAMP / 2) - 1, x, y;
+    if (bordaJogo->cor != 5) {
+    for (int i = 0; i < TAMP; i++) {
+        for (int j = 0; j < TAMP; j++) {
+            x = i - pont;
+            y = j - pont;
+            temp[pont + y][pont - x] = peca->peca1[i][j];
+        }
+    }
+    for (int i = 0; i < TAMP; i++) {
+        for (int j = 0; j < TAMP; j++)
+            peca->peca1[i][j] = temp[i][j];
+    }
+    }
+    else {
+        if (peca->peca1[0][1] == '#' && peca->peca1[1][1] == '#' && peca->peca1[2][1] == '#' && peca->peca1[3][1] == '#') {
+            for (int i = 0; i < TAMP; i++) {
+                for (int j = 0; j < TAMP; j++)
+                    peca->peca1[i][j] = ' ';
+            }
+            peca->peca1[2][0] = '#'; peca->peca1[2][1] = '#', peca->peca1[2][2] = '#'; peca->peca1[2][3] = '#';
+        }
+        else if (peca->peca1[2][0] == '#' && peca->peca1[2][1] == '#' && peca->peca1[2][2] == '#' && peca->peca1[2][3] == '#') {
+            for (int i = 0; i < TAMP; i++) {
+                for (int j = 0; j < TAMP; j++)
+                    peca->peca1[i][j] = ' ';
+            }
+            peca->peca1[0][2] = '#'; peca->peca1[1][2] = '#'; peca->peca1[2][2] = '#'; peca->peca1[3][2] = '#';
+        }
+        else if (peca->peca1[0][2] == '#' && peca->peca1[1][2] == '#' && peca->peca1[2][2] == '#' && peca->peca1[3][2] == '#') {
+            for (int i = 0; i < TAMP; i++) {
+                for (int j = 0; j < TAMP; j++)
+                    peca->peca1[i][j] = ' ';
+            }
+            peca->peca1[1][0] = '#'; peca->peca1[1][1] = '#'; peca->peca1[1][2] = '#'; peca->peca1[1][3] = '#';
+        }
+        else if (peca->peca1[1][0] == '#' && peca->peca1[1][1] == '#' && peca->peca1[1][2] == '#' && peca->peca1[1][3] == '#') {
+            for (int i = 0; i < TAMP; i++) {
+                for (int j = 0; j < TAMP; j++)
+                    peca->peca1[i][j] = ' ';
+            }
+            peca->peca1[0][1] = '#'; peca->peca1[1][1] = '#'; peca->peca1[2][1] = '#'; peca->peca1[3][1] = '#';
+        }
+    }
+}
+
+void linhaCompleta(borda *bordaJogo, info *jogoInfo) {
+    int clinhas = 0;
+    for (int i = 1; i < LINB - 1; i++) {
+        int val = 1;
+        for (int j = 1; j < COLB - 1; j++) {
+            if (bordaJogo->borda[i][j] == ' ') {
+                val = 0;
+                break;
+            }
+        }
+        if (val) {
+            clinhas++;
+            removerLinha(i, bordaJogo);
+            i--;
+        }
+    }
+        switch (clinhas) {
+	        case 1: jogoInfo->score += (clinhas*100);     jogoInfo->alinhas+=(clinhas);  break;
+	        case 2: jogoInfo->score += (clinhas*100)+100; jogoInfo->alinhas+=(clinhas);  break;
+	        case 3: jogoInfo->score += (clinhas*100)+200; jogoInfo->alinhas+=(clinhas);  break;
+	        case 4: jogoInfo->score += (clinhas*100)+400; jogoInfo->alinhas+=(clinhas);  break;
+        }
+        if (jogoInfo->alinhas >= jogoInfo->nivel*10 && jogoInfo->vel > 20000) {
+            if (jogoInfo->vel > 20000) {
+                jogoInfo->nivel +=1;
+                jogoInfo->vel -=20000;
+            }
+        }
+}
+
+void removerLinha(int end, borda *bordaJogo) {
+    for (int i = end; i > 1; i--) {
+        for (int j = 1; j < COLB - 1; j++) {
+            bordaJogo->borda[i][j] = bordaJogo->borda[i - 1][j];
+            bordaJogo->corBorda[i][j] = bordaJogo->corBorda[i -1][j];
+        }
+    }
+}    
+void ajuste(peca_ap *peca, coord *ajustePeca) {
+    int min = TAMP;
+    for (int i = 0; i < TAMP; i++) {
+        for (int j = 0; j < TAMP; j++) {
+            if (peca->peca1[i][j] == '#') {
+                if (i < min)
+                    min = i;
+            }
+        }
+    }
+    ajustePeca->posX = ajustePeca->posX - min;
 }
