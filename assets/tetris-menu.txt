@@ -10,7 +10,8 @@
 ╚═════════════════════════════════════════════════╝
 
 
-                p: Iniciar partida
+                j: Iniciar partida
                 i: Instruções
+                p: Ver placar
                 c: Ver créditos
                 q: Sair
