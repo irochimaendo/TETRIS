@@ -298,8 +298,8 @@ void colorInstrucoes(coord_t *offset) {
 
 	// Colorir os títulos de cada tópico e o 'q' no prompt na parte inferior
 	mvchgat(offset->y + 2, offset->x + 3, 13, WA_BOLD, 17, NULL);
-	mvchgat(offset->y + 9, offset->x + 3, 10, WA_BOLD, 18, NULL);
-	mvchgat(offset->y + 21, offset->x + 32, 3, WA_BOLD, 21, NULL);
+	mvchgat(offset->y + 11, offset->x + 3, 10, WA_BOLD, 18, NULL);
+	mvchgat(offset->y + 23, offset->x + 32, 3, WA_BOLD, 21, NULL);
 }
 
 void colorGameUI(coord_t *offset) {

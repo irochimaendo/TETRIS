@@ -2,9 +2,11 @@
 ║                                                                      ║
 ║  -> Controles:                                                       ║
 ║                                                                      ║
-║    a/d: mover para esquerda ou direita                               ║
-║    s: fazer o bloco cair mais rápido                                 ║
-║    spacebar: girar o bloco                                           ║
+║    ←/→: mover para esquerda ou direita                               ║
+║    ↓: soltar suavemente                                              ║
+║    z: girar o bloco                                                  ║
+║    x: soltar com força                                               ║
+║    c: pausar/continuar o jogo                                        ║
 ║    (Durante o jogo) q: Voltar ao menu principal                      ║
 ║                                                                      ║
 ║  -> Regras:                                                          ║
