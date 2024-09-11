@@ -24,7 +24,7 @@
 #define CRED_PATH "assets/creditos.txt"
 #define GAMEUI_PATH "assets/game-ui.txt"
 #define GAMEOVER_PATH "assets/game-over.txt"
-#define LEADERBOARD_PATH "assets/leaderboard.txt"
+#define PLACAR_UI_PATH "assets/placar-ui.txt"
 
 // Define a cor laranja e as variantes em negrito, para não usar as cores brilhantes
 // do terminal no texto em negrito e manter a consistência ao longo do programa.
@@ -60,7 +60,7 @@ typedef struct {
 } info;
 
 //Protótipos:
-int fileCheck(FILE **tetrisMenu, FILE **instrucoes, FILE **creditos, FILE **gameUI);
+int fileCheck(FILE **tetrisMenu, FILE **instrucoes, FILE **placar, FILE **creditos, FILE **gameUI);
 void initNcurses();
 int colorCheck();
 void initColors();
@@ -86,11 +86,11 @@ void ajuste(peca_ap *peca, coord *ajustePeca);
 
 int main() {
 	char menuSelect;
-	FILE *tetrisMenu, *instrucoes, *creditos, *gameUI;
+	FILE *tetrisMenu, *instrucoes, *placar, *creditos, *gameUI;
 	coord_t scrCenter, cursOffset;
 	setlocale(LC_ALL, "");
 
-	if(fileCheck(&tetrisMenu, &instrucoes, &creditos, &gameUI) == FAIL) {
+	if(fileCheck(&tetrisMenu, &instrucoes, &placar, &creditos, &gameUI) == FAIL) {
 		endwin();
 		printf("Ocorreu um erro ao abrir os arquivos. Saindo...\n");
 		return 1;
@@ -129,7 +129,18 @@ int main() {
 						colorInstrucoes(&cursOffset);
 					}
 					refresh();
-					menuSelect = getch();
+					menuSelect = tolower(getch());
+				} while(menuSelect != 'q');
+				menuSelect = 0;
+				break;
+
+			case 'p':
+				do {
+					if(calculateOffset(placar, &scrCenter, &cursOffset) == TRUE) {
+						printFileCentered(placar, &cursOffset);
+					}
+					refresh();
+					menuSelect = tolower(getch());
 				} while(menuSelect != 'q');
 				menuSelect = 0;
 				break;
@@ -154,10 +165,11 @@ int main() {
 	return 0;
 }
 
-int fileCheck(FILE **tetrisMenu, FILE **instrucoes, FILE **creditos, FILE **gameUI) {
+int fileCheck(FILE **tetrisMenu, FILE **instrucoes, FILE **placar, FILE **creditos, FILE **gameUI) {
 
 	if((*tetrisMenu = fopen(MENU_PATH, "r")) == NULL) return FAIL;
 	if((*instrucoes = fopen(INSTR_PATH, "r")) == NULL) return FAIL;
+	if((*placar = fopen(PLACAR_UI_PATH, "r")) == NULL) return FAIL;
 	if((*creditos = fopen(CRED_PATH, "r")) == NULL) return FAIL;
 	if((*gameUI = fopen(GAMEUI_PATH, "r")) == NULL) return FAIL;
 
@@ -166,7 +178,7 @@ int fileCheck(FILE **tetrisMenu, FILE **instrucoes, FILE **creditos, FILE **game
 
 void initNcurses() {
 	initscr(); noecho(); curs_set(0); start_color(); 
-	cbreak(); keypad(stdscr, TRUE); nodelay(stdscr, TRUE);
+	keypad(stdscr, TRUE); nodelay(stdscr, TRUE);
 }
 
 int colorCheck() {
@@ -241,13 +253,13 @@ bool calculateOffset(FILE *fp, coord_t *center, coord_t *offset) {
 	 * em relação ao centro da tela.
 	 */
 
-	char str[TEXT_LENGTH];
+	char tempString[TEXT_LENGTH];
 	int largura = 0, altura = 0, aux;
 	coord_t prevOffset = *offset;	// Lembrar do offset anterior para comparar depois
 	center->x = COLS / 2; center->y = LINES / 2;
 
-	while(fgets(str, TEXT_LENGTH, fp) == str) {
-		aux = mbstowcs(NULL, str, TEXT_LENGTH);
+	while(fgets(tempString, TEXT_LENGTH, fp) == tempString) {
+		aux = mbstowcs(NULL, tempString, TEXT_LENGTH);
 		largura = aux > largura ? aux : largura;
 		++altura;
 	}
@@ -265,11 +277,11 @@ bool calculateOffset(FILE *fp, coord_t *center, coord_t *offset) {
 	else return FALSE;
 }
 void printFileCentered(FILE *fp, coord_t *offset) {
-	char str[TEXT_LENGTH];
+	char tempString[TEXT_LENGTH];
 
 	clear();
-	for(int i = 0; fgets(str, TEXT_LENGTH, fp) == str; ++i)
-		mvaddstr(offset->y + i, offset->x, str);
+	for(int i = 0; fgets(tempString, TEXT_LENGTH, fp) == tempString; ++i)
+		mvaddstr(offset->y + i, offset->x, tempString);
 	rewind(fp);
 }
 
@@ -336,30 +348,18 @@ void fillGameUiInfo(borda *bordaJogo, peca_ap *peca, info *jogoInfo, coord_t *of
 	// Próxima peça:
 	for(int i = 0; i < TAMP; ++i) {
 		for(int j = 0; j < TAMP; ++j) {
-			if (peca->peca2[i][j] == '#') {
-				// int k = (*cor2 == 5) ? i-1 : i;
-				// int l = (*cor2 == 3) ? j+1 : j;
-				// attron(COLOR_PAIR(*cor2));
-				// mvaddch(offset->y + 17 + k, offset->x + 29 + l, ACS_CKBOARD);
-				// attroff(COLOR_PAIR(*cor2));
+			if (peca->peca2[i][j] == '#')
 				mvchgat(offset->y + 17 + i, offset->x + 29 + j, 1, WA_NORMAL, *cor2, NULL);
-			}
 			else
 				mvchgat(offset->y + 17 + i, offset->x + 29 + j, 1, WA_NORMAL, 0, NULL);
-
 		}
 	}
 
 	for(int i = 1; i < LINB - 1; ++i) {
 		for(int j = 1; j < COLB - 1; ++j) {
-			if (bordaJogo->borda[i][j] == '#') {
-				// attron(COLOR_PAIR(bordaJogo->corBorda[i][j]));
-				// mvaddch(offset->y + 3 + i, offset->x + 6 + j, ACS_CKBOARD);
-				// attroff(COLOR_PAIR(bordaJogo->corBorda[i][j]));
+			if (bordaJogo->borda[i][j] == '#')
 				mvchgat(offset->y + 3 + (i-1), offset->x + 6 + (j-1), 1, WA_NORMAL, bordaJogo->corBorda[i][j], NULL);
-			}
 			else
-				// mvaddch(offset->y + 3 + i, offset->x + 6 + j, ' ');
 				mvchgat(offset->y + 3 + (i-1), offset->x + 6 + (j-1), 1, WA_NORMAL, 0, NULL);
 		}
 	}
@@ -382,9 +382,10 @@ void loopJogo(FILE *gameUI, coord_t *center, coord_t *offset) {
 		refresh();
         linhaCompleta(&bordaJogo, &jogoInfo);
         bordaJogo.cor = sorteioPeca(&inicial, &cor2, &peca, &pecas_tetris);
-		if(calculateOffset(gameUI, center, offset))
+		if(calculateOffset(gameUI, center, offset)) {
 			printFileCentered(gameUI,  offset);
-		colorGameUI(offset);
+			colorGameUI(offset);
+		}
 		fillGameUiInfo(&bordaJogo, &peca, &jogoInfo, offset, &cor2);
         check(&bordaJogo, &jogoInfo);
         ajuste(&peca, &ajustePeca);
@@ -392,6 +393,24 @@ void loopJogo(FILE *gameUI, coord_t *center, coord_t *offset) {
         if (ch == 'q') break;
         gameOver = check(&bordaJogo, &jogoInfo);
     }
+
+	if(gameOver) {
+		flash(); usleep(100000); flash();
+
+		for(int i = 1; i < LINB-1; ++i) {
+			for(int j = 1; j < COLB-1; ++j)
+				bordaJogo.borda[i][j] = ' ';
+
+		if(calculateOffset(gameUI, center, offset)) {
+			printFileCentered(gameUI,  offset);
+			colorGameUI(offset);
+		}
+
+			fillGameUiInfo(&bordaJogo, &peca, &jogoInfo, offset, &cor2);
+			refresh();
+			usleep(40000);
+		}
+	}
 }
 
 void defBorda(borda *bordaJogo) {
