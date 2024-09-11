@@ -56,7 +56,7 @@ typedef struct {
     char peca1[TAMP][TAMP]; char peca2[TAMP][TAMP];
 } peca_ap;
 typedef struct {
-    int nivel; int score; int alinhas; int vel;
+    int nivel; int score; int alinhas; float tempo; float delay;
 } info;
 
 //Protótipos:
@@ -371,7 +371,7 @@ void loopJogo(FILE *gameUI, coord_t *center, coord_t *offset) {
 	borda bordaJogo;
     pecas pecas_tetris;
     peca_ap peca;
-    info jogoInfo = {1, 0, 0, 200000};
+    info jogoInfo = {1, 0, 0, 2.0, jogoInfo.tempo * CLOCKS_PER_SEC};
     coord ajustePeca;
     int cor2; char ch = 0;
     lixo(&bordaJogo);
@@ -523,37 +523,44 @@ int checarColisao(borda *bordaJogo, peca_ap *peca, coord *coord_temp) {
     return 0;
 }
 
+#include <time.h>
+
+#include <time.h>
+
 void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, coord_t *center, coord_t *offset, int *cor2, char *ch) {
     coord coord_, coord_temp;
     coord_.posX = 1; coord_.posY = (COLB / 2) - 1;
     ajuste(peca, &coord_);
-    int colidiu, tempo = 0;
+    int colidiu;
+    clock_t inicial = clock();
+    jogoInfo->delay = jogoInfo->tempo * CLOCKS_PER_SEC;
     while (1) {
         int teclou = 0;
         for (int i = 0; i < TAMP; i++) {
             for (int j = 0; j < TAMP; j++) {
-                    if (peca->peca1[i][j] == '#' && coord_.posX + i < LINB && coord_.posY + j < COLB && coord_.posX + i >= 0 && coord_.posY + j >= 0)
-                        bordaJogo->borda[coord_.posX + i][coord_.posY + j] = ' ';
+                if (peca->peca1[i][j] == '#' && coord_.posX + i < LINB && coord_.posY + j < COLB && coord_.posX + i >= 0 && coord_.posY + j >= 0)
+                    bordaJogo->borda[coord_.posX + i][coord_.posY + j] = ' ';
             }
         }
         int tecla = tolower(getch()); 
         switch (tecla) {
             case KEY_DOWN:
-            coord_temp = (coord){coord_.posX + 1, coord_.posY};
+                coord_temp = (coord){coord_.posX + 1, coord_.posY};
                 if (!checarColisao(bordaJogo, peca, &coord_temp)) {
                     coord_.posX = coord_temp.posX;
                     teclou = 1;
+                    jogoInfo->score +=1;
                 }
                 break;
             case KEY_LEFT:
-            coord_temp = (coord){coord_.posX, coord_.posY - 1};
+                coord_temp = (coord){coord_.posX, coord_.posY - 1};
                 if (!checarColisao(bordaJogo, peca, &coord_temp)) {
                     coord_.posY = coord_temp.posY;
                     teclou = 1;
                 }
                 break;
             case KEY_RIGHT:
-            coord_temp = (coord){coord_.posX, coord_.posY + 1};
+                coord_temp = (coord){coord_.posX, coord_.posY + 1};
                 if (!checarColisao(bordaJogo, peca, &coord_temp)) {
                     coord_.posY = coord_temp.posY;
                     teclou = 1;
@@ -588,13 +595,14 @@ void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, co
                 }
                 teclou = 1;
                 break;
-			case 'q':
-				*ch = 'q';
-				break;
+            case 'q':
+                *ch = 'q';
+                break;
         }
-		if (*ch == 'q')
-			break;
-        if (tempo >= VELOCIDADE) {
+        if (*ch == 'q')
+            break;
+        clock_t atual = clock();
+        if ((atual - inicial) >= jogoInfo->delay) {
             coord_.posX++;
             colidiu = checarColisao(bordaJogo, peca, &coord_);
             if (colidiu) {
@@ -604,32 +612,28 @@ void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, co
                         if (peca->peca1[i][j] == '#' && coord_.posX + i < LINB && coord_.posY + j < COLB && coord_.posX + i >= 0 && coord_.posY + j >= 0) {
                             bordaJogo->borda[coord_.posX + i][coord_.posY + j] = peca->peca1[i][j];
                             bordaJogo->corBorda[coord_.posX + i][coord_.posY + j] = bordaJogo->cor;
-                            }
+                        }
                     }
                 }
                 break;
             }
-            tempo = 0;
-        } else {
-            tempo += 10;
+            inicial = atual;
         }
         for (int i = 0; i < TAMP; i++) {
             for (int j = 0; j < TAMP; j++) {
-                if (peca->peca1[i][j] == '#' && peca->peca1[i][j] == '#' && coord_.posX + i < LINB && coord_.posY + j < COLB && coord_.posX + i >= 0 && coord_.posY + j >= 0) {
+                if (peca->peca1[i][j] == '#' && coord_.posX + i < LINB && coord_.posY + j < COLB && coord_.posX + i >= 0 && coord_.posY + j >= 0) {
                     bordaJogo->borda[coord_.posX + i][coord_.posY + j] = peca->peca1[i][j];
                     bordaJogo->corBorda[coord_.posX + i][coord_.posY + j] = bordaJogo->cor;
                 }
             }
         }
-        if (teclou || colidiu) {
+        if (teclou) {
             refresh();
-		}
-        else
-            usleep(jogoInfo->vel);
-		if(calculateOffset(gameUI, center, offset))
-			printFileCentered(gameUI,  offset);
-		colorGameUI(offset);
-		fillGameUiInfo(bordaJogo, peca, jogoInfo, offset, cor2);
+        }
+        if(calculateOffset(gameUI, center, offset))
+            printFileCentered(gameUI, offset);
+        colorGameUI(offset);
+        fillGameUiInfo(bordaJogo, peca, jogoInfo, offset, cor2);
         check(bordaJogo, jogoInfo);
     }
 }
@@ -704,10 +708,10 @@ void linhaCompleta(borda *bordaJogo, info *jogoInfo) {
 	        case 3: jogoInfo->score += (clinhas*100)+200; jogoInfo->alinhas+=(clinhas);  break;
 	        case 4: jogoInfo->score += (clinhas*100)+400; jogoInfo->alinhas+=(clinhas);  break;
         }
-        if (jogoInfo->alinhas >= jogoInfo->nivel*10 && jogoInfo->vel > 20000) {
-            if (jogoInfo->vel > 20000) {
+        if (jogoInfo->alinhas >= jogoInfo->nivel*10 && jogoInfo->tempo > 0.2) {
+            if (jogoInfo->delay > 0.2) {
                 jogoInfo->nivel +=1;
-                jogoInfo->vel -=20000;
+                jogoInfo->tempo -=0.2;
             }
         }
 }
@@ -732,3 +736,4 @@ void ajuste(peca_ap *peca, coord *ajustePeca) {
     }
     ajustePeca->posX = ajustePeca->posX - min;
 }
+
