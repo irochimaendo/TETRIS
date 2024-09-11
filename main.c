@@ -708,11 +708,9 @@ void linhaCompleta(borda *bordaJogo, info *jogoInfo) {
 	        case 3: jogoInfo->score += (clinhas*100)+200; jogoInfo->alinhas+=(clinhas);  break;
 	        case 4: jogoInfo->score += (clinhas*100)+400; jogoInfo->alinhas+=(clinhas);  break;
         }
-        if (jogoInfo->alinhas >= jogoInfo->nivel*10 && jogoInfo->tempo > 0.2) {
-            if (jogoInfo->delay > 0.2) {
+        if (jogoInfo->alinhas >= jogoInfo->nivel*2 && jogoInfo->tempo > 0.2) {
                 jogoInfo->nivel +=1;
-                jogoInfo->tempo -=0.2;
-            }
+                jogoInfo->tempo -=1.8;
         }
 }
 
@@ -736,4 +734,3 @@ void ajuste(peca_ap *peca, coord *ajustePeca) {
     }
     ajustePeca->posX = ajustePeca->posX - min;
 }
-
