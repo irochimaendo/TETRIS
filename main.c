@@ -5,6 +5,8 @@
 #include <locale.h>
 #include <ctype.h>
 #include <time.h>
+#include <SDL.h>
+#include <SDL_mixer.h>
 
 #define PASS 0
 #define FAIL 1
@@ -17,6 +19,7 @@
 #define TEXT_LENGTH 256
 
 // Caminhos para os arquivos usados pelo programa.
+#define BGM_PATH "assets/tetris_bgm.mp3"
 #define MENU_PATH "assets/tetris-menu.txt"
 #define INSTR_PATH "assets/instrucoes.txt"
 #define PLACAR_UI_PATH "assets/placar-ui.txt"
@@ -87,13 +90,22 @@ void colorGameOver(coord_t *offset);
 int main() {
 	char menuSelect;
 	FILE *tetrisMenu, *instrucoes, *placar, *creditos, *gameUI, *gameOverUI;
+	Mix_Music *tetrisBgm;
 	coord_t scrCenter, cursOffset;
 	setlocale(LC_ALL, "");
+
+	SDL_Init(SDL_INIT_AUDIO);
+	if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+		printf("Erro ao abrir dispositivo de áudio.\n");
+		return EXIT_FAILURE;
+	}
+
+	tetrisBgm = Mix_LoadMUS(BGM_PATH);
 
 	if(fileCheck(&tetrisMenu, &instrucoes, &placar, &creditos, &gameUI, &gameOverUI) == FAIL) {
 		endwin();
 		printf("Ocorreu um erro ao abrir os arquivos. Saindo...\n");
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	initNcurses();
@@ -101,10 +113,11 @@ int main() {
 		endwin();
 		fclose(tetrisMenu); fclose(instrucoes); fclose(creditos); fclose(gameUI);
 		printf("Este terminal não possui suporte de cores adequado. Saindo...\n");
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	initColors();
+	Mix_PlayMusic(tetrisBgm, -1);
 
 	do {
 		if(calculateOffset(tetrisMenu, &scrCenter, &cursOffset)) {
@@ -157,12 +170,18 @@ int main() {
 		}
 	} while(menuSelect != 'q');
 
+	Mix_HaltMusic();
+
 	fclose(tetrisMenu);
 	fclose(instrucoes);
 	fclose(creditos);
 	endwin();
 
-	return 0;
+	Mix_FreeMusic(tetrisBgm);
+	Mix_Quit();
+	SDL_Quit();
+
+	return EXIT_SUCCESS;
 }
 
 int fileCheck(FILE **tetrisMenu, FILE **instrucoes, FILE **placar, FILE **creditos, FILE **gameUI, FILE **gameOverUI) {
