@@ -23,6 +23,7 @@
 #define MENU_PATH "assets/tetris-menu.txt"
 #define INSTR_PATH "assets/instrucoes.txt"
 #define PLACAR_UI_PATH "assets/placar-ui.txt"
+#define RANKING_PATH "assets/recordes.txt"
 #define CRED_PATH "assets/creditos.txt"
 #define GAMEUI_PATH "assets/game-ui.txt"
 #define GAMEOVER_PATH "assets/game-over.txt"
@@ -38,36 +39,40 @@
 #define COLOR_CYAN_BOLD 14
 #define COLOR_ORANGE_BOLD 15
 
-// Estrutura usada para armazenar algumas posições de referência em relação à origem da tela.
 typedef struct {
 	int x;
 	int y;
 } coord_t;
 typedef struct {
-    char p1[TAMP][TAMP]; char p2[TAMP][TAMP]; char p3[TAMP][TAMP]; char p4[TAMP][TAMP];
-    char p5[TAMP][TAMP]; char p6[TAMP][TAMP]; char p7[TAMP][TAMP];
+	char p1[TAMP][TAMP]; char p2[TAMP][TAMP]; char p3[TAMP][TAMP]; char p4[TAMP][TAMP];
+	char p5[TAMP][TAMP]; char p6[TAMP][TAMP]; char p7[TAMP][TAMP];
 } pecas;
 typedef struct {
-    char borda[LINB][COLB]; int corBorda[LINB][COLB]; int cor; 
+	char borda[LINB][COLB]; int corBorda[LINB][COLB]; int cor; 
 } borda;
 typedef struct {
-        int posX; int posY;
+	int posX; int posY;
 } coord;
 typedef struct {
-    char peca1[TAMP][TAMP]; char peca2[TAMP][TAMP];
+	char peca1[TAMP][TAMP]; char peca2[TAMP][TAMP];
 } peca_ap;
 typedef struct {
-    int nivel; int score; int alinhas; float tempo; float delay;
+	int nivel; int score; int alinhas; float tempo; float delay;
 } info;
+typedef struct {
+	char nome[4];
+	unsigned int pontuacao;
+} ranking;
 
 //Protótipos:
-int fileCheck(FILE **tetrisMenu, FILE **instrucoes, FILE **placar, FILE **creditos, FILE **gameUI, FILE **gameOverUI);
+int fileCheck(FILE **tetrisMenu, FILE **instrucoes, FILE **placarUI, FILE **creditos, FILE **gameUI, FILE **gameOverUI, FILE **recordes);
 void initNcurses();
 int colorCheck();
 void initColors();
 bool calculateOffset(FILE *fp, coord_t *center, coord_t *offset);
 void colorMainMenu(coord_t *offset);
 void colorInstrucoes(coord_t *offset);
+void preencherPlacar(FILE *recordes, coord_t *offset);
 void colorGameUI(coord_t *offset);
 void fillGameUiInfo(borda *bordaJogo, peca_ap *peca, info *jogoInfo, coord_t *offset, int *cor2);
 void printFileCentered(FILE *fp, coord_t *offset);
@@ -89,7 +94,7 @@ void colorGameOver(coord_t *offset);
 
 int main() {
 	char menuSelect;
-	FILE *tetrisMenu, *instrucoes, *placar, *creditos, *gameUI, *gameOverUI;
+	FILE *tetrisMenu, *instrucoes, *placarUI, *creditos, *gameUI, *gameOverUI, *recordes;
 	Mix_Music *tetrisBgm;
 	coord_t scrCenter, cursOffset;
 	setlocale(LC_ALL, "");
@@ -102,7 +107,7 @@ int main() {
 
 	tetrisBgm = Mix_LoadMUS(BGM_PATH);
 
-	if(fileCheck(&tetrisMenu, &instrucoes, &placar, &creditos, &gameUI, &gameOverUI) == FAIL) {
+	if(fileCheck(&tetrisMenu, &instrucoes, &placarUI, &creditos, &gameUI, &gameOverUI, &recordes) == FAIL) {
 		endwin();
 		printf("Ocorreu um erro ao abrir os arquivos. Saindo...\n");
 		return EXIT_FAILURE;
@@ -111,7 +116,8 @@ int main() {
 	initNcurses();
 	if(colorCheck() == FAIL) {
 		endwin();
-		fclose(tetrisMenu); fclose(instrucoes); fclose(creditos); fclose(gameUI);
+		fclose(tetrisMenu); fclose(instrucoes); fclose(placarUI);
+		fclose(creditos); fclose(gameUI); fclose(gameOverUI); fclose(recordes);
 		printf("Este terminal não possui suporte de cores adequado. Saindo...\n");
 		return EXIT_FAILURE;
 	}
@@ -142,20 +148,17 @@ int main() {
 						colorInstrucoes(&cursOffset);
 					}
 					refresh();
-					menuSelect = tolower(getch());
-				} while(menuSelect != 'q');
-				menuSelect = 0;
+				} while(tolower(getch()) != 'q');
 				break;
 
 			case 'p':
 				do {
-					if(calculateOffset(placar, &scrCenter, &cursOffset) == TRUE) {
-						printFileCentered(placar, &cursOffset);
+					if(calculateOffset(placarUI, &scrCenter, &cursOffset) == TRUE) {
+						printFileCentered(placarUI, &cursOffset);
+						preencherPlacar(recordes, &cursOffset);
 					}
 					refresh();
-					menuSelect = tolower(getch());
-				} while(menuSelect != 'q');
-				menuSelect = 0;
+				} while(tolower(getch()) != 'q');
 				break;
 
 			case 'c':
@@ -163,19 +166,16 @@ int main() {
 					if(calculateOffset(creditos, &scrCenter, &cursOffset) == TRUE)
 						printFileCentered(creditos, &cursOffset);
 					refresh();
-					menuSelect = getch();
-				} while(menuSelect != 'q');
-				menuSelect = 0;
+				} while(tolower(getch()) != 'q');
 				break;
 		}
 	} while(menuSelect != 'q');
 
 	Mix_HaltMusic();
 
-	fclose(tetrisMenu);
-	fclose(instrucoes);
-	fclose(creditos);
 	endwin();
+	fclose(tetrisMenu); fclose(instrucoes); fclose(placarUI);
+	fclose(creditos); fclose(gameUI); fclose(gameOverUI); fclose(recordes);
 
 	Mix_FreeMusic(tetrisBgm);
 	Mix_Quit();
@@ -184,14 +184,15 @@ int main() {
 	return EXIT_SUCCESS;
 }
 
-int fileCheck(FILE **tetrisMenu, FILE **instrucoes, FILE **placar, FILE **creditos, FILE **gameUI, FILE **gameOverUI) {
+int fileCheck(FILE **tetrisMenu, FILE **instrucoes, FILE **placarUI, FILE **creditos, FILE **gameUI, FILE **gameOverUI, FILE **recordes) {
 
 	if((*tetrisMenu = fopen(MENU_PATH, "r")) == NULL) return FAIL;
 	if((*instrucoes = fopen(INSTR_PATH, "r")) == NULL) return FAIL;
-	if((*placar = fopen(PLACAR_UI_PATH, "r")) == NULL) return FAIL;
+	if((*placarUI = fopen(PLACAR_UI_PATH, "r")) == NULL) return FAIL;
 	if((*creditos = fopen(CRED_PATH, "r")) == NULL) return FAIL;
 	if((*gameUI = fopen(GAMEUI_PATH, "r")) == NULL) return FAIL;
 	if((*gameOverUI = fopen(GAMEOVER_PATH, "r")) == NULL) return FAIL;
+	if((*recordes = fopen(RANKING_PATH, "r+")) == NULL) return FAIL;
 
 	return PASS;
 }
@@ -325,6 +326,17 @@ void colorInstrucoes(coord_t *offset) {
 	mvchgat(offset->y + 23, offset->x + 32, 3, WA_BOLD, 14, NULL);
 }
 
+void preencherPlacar(FILE *recordes, coord_t *offset) {
+	ranking info[10];
+
+	for(int i = 0; i < 10; ++i) {
+		if(fscanf(recordes, "%3s %d", info[i].nome, &info[i].pontuacao) != 2) break;
+		mvaddstr(offset->y + 5 + i, offset->x + 8, info[i].nome);
+		mvprintw(offset->y + 5 + i, offset->x + 18, "%09d", info[i].pontuacao);
+	}
+	rewind(recordes);
+}
+
 void colorGameUI(coord_t *offset) {
 
 	// Eu quis fazer as bordas ficarem mais esmaecidas. Contraste ou algo assim.
@@ -419,10 +431,10 @@ void loopJogo(FILE *gameUI, FILE *gameOverUI, coord_t *center, coord_t *offset) 
 			for(int j = 1; j < COLB-1; ++j)
 				bordaJogo.borda[i][j] = ' ';
 
-		if(calculateOffset(gameUI, center, offset)) {
-			printFileCentered(gameUI,  offset);
-			colorGameUI(offset);
-		}
+			if(calculateOffset(gameUI, center, offset)) {
+				printFileCentered(gameUI,  offset);
+				colorGameUI(offset);
+			}
 
 			fillGameUiInfo(&bordaJogo, &peca, &jogoInfo, offset, &cor2);
 			refresh();
@@ -751,7 +763,8 @@ void removerLinha(int end, borda *bordaJogo) {
             bordaJogo->corBorda[i][j] = bordaJogo->corBorda[i -1][j];
         }
     }
-}    
+}
+
 void ajuste(peca_ap *peca, coord *ajustePeca) {
     int min = TAMP;
     for (int i = 0; i < TAMP; i++) {
@@ -775,21 +788,18 @@ void telaDeGameOver(FILE *gameOverUI, int pontuacao, coord_t *center, coord_t *o
 		mvprintw(offset->y + 12, offset->x + 47, "%d", pontuacao);
 	}
 
-	switch(novoRecorde) {
-		case TRUE:
-			mvchgat(offset->y + 16, 0, -1, WA_NORMAL, 15, NULL);
-			move(offset->y + 15, offset->x + 57);
-			refresh();
-			curs_set(1); echo();
-			getnstr(nomeJogador, 3);
-			curs_set(0); noecho();
-			break;
-
-		case FALSE:
-			mvchgat(offset->y + 13, 0, -1, WA_NORMAL, 15, NULL);
-			mvchgat(offset->y + 15, 0, -1, WA_NORMAL, 15, NULL);
-			while(getch() != 'q');
-			break;
+	if(novoRecorde == TRUE) {
+		mvchgat(offset->y + 16, 0, -1, WA_NORMAL, 15, NULL);
+		move(offset->y + 15, offset->x + 57);
+		refresh();
+		curs_set(1); echo();
+		getnstr(nomeJogador, 3);
+		curs_set(0); noecho();
+	}
+	else {
+		mvchgat(offset->y + 13, 0, -1, WA_NORMAL, 15, NULL);
+		mvchgat(offset->y + 15, 0, -1, WA_NORMAL, 15, NULL);
+		while(getch() != 'q');
 	}
 
 }
