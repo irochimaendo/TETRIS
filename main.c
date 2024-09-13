@@ -5,6 +5,8 @@
 #include <locale.h>
 #include <ctype.h>
 #include <time.h>
+#include <SDL.h>
+#include <SDL_mixer.h>
 
 #define PASS 0
 #define FAIL 1
@@ -17,6 +19,7 @@
 #define TEXT_LENGTH 256
 
 // Caminhos para os arquivos usados pelo programa.
+#define BGM_PATH "assets/tetris_bgm.mp3"
 #define MENU_PATH "assets/tetris-menu.txt"
 #define INSTR_PATH "assets/instrucoes.txt"
 #define PLACAR_UI_PATH "assets/placar-ui.txt"
@@ -87,13 +90,22 @@ void colorGameOver(coord_t *offset);
 int main() {
 	char menuSelect;
 	FILE *tetrisMenu, *instrucoes, *placar, *creditos, *gameUI, *gameOverUI;
+	Mix_Music *tetrisBgm;
 	coord_t scrCenter, cursOffset;
 	setlocale(LC_ALL, "");
+
+	SDL_Init(SDL_INIT_AUDIO);
+	if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+		printf("Erro ao abrir dispositivo de áudio.\n");
+		return EXIT_FAILURE;
+	}
+
+	tetrisBgm = Mix_LoadMUS(BGM_PATH);
 
 	if(fileCheck(&tetrisMenu, &instrucoes, &placar, &creditos, &gameUI, &gameOverUI) == FAIL) {
 		endwin();
 		printf("Ocorreu um erro ao abrir os arquivos. Saindo...\n");
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	initNcurses();
@@ -101,10 +113,11 @@ int main() {
 		endwin();
 		fclose(tetrisMenu); fclose(instrucoes); fclose(creditos); fclose(gameUI);
 		printf("Este terminal não possui suporte de cores adequado. Saindo...\n");
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	initColors();
+	Mix_PlayMusic(tetrisBgm, -1);
 
 	do {
 		if(calculateOffset(tetrisMenu, &scrCenter, &cursOffset)) {
@@ -157,12 +170,18 @@ int main() {
 		}
 	} while(menuSelect != 'q');
 
+	Mix_HaltMusic();
+
 	fclose(tetrisMenu);
 	fclose(instrucoes);
 	fclose(creditos);
 	endwin();
 
-	return 0;
+	Mix_FreeMusic(tetrisBgm);
+	Mix_Quit();
+	SDL_Quit();
+
+	return EXIT_SUCCESS;
 }
 
 int fileCheck(FILE **tetrisMenu, FILE **instrucoes, FILE **placar, FILE **creditos, FILE **gameUI, FILE **gameOverUI) {
@@ -338,12 +357,16 @@ void fillGameUiInfo(borda *bordaJogo, peca_ap *peca, info *jogoInfo, coord_t *of
 	mvprintw(offset->y + 10, offset->x + 32, "%6d", jogoInfo->alinhas);
 
 	// Próxima peça:
+    int k = *cor2 == 5 ? -1 : 0;
+    int l = *cor2 == 3 ? 1 : 0;
 	for(int i = 0; i < TAMP; ++i) {
 		for(int j = 0; j < TAMP; ++j) {
+            if (!j)
+                mvchgat(offset->y + 17 + i, offset->x + 29 + j, 1, WA_NORMAL, 0, NULL);
 			if (peca->peca2[i][j] == '#')
-				mvchgat(offset->y + 17 + i, offset->x + 29 + j, 1, WA_NORMAL, *cor2, NULL);
+				mvchgat(offset->y + 17 + i + k, offset->x + 29 + j + l, 1, WA_NORMAL, *cor2, NULL);
 			else
-				mvchgat(offset->y + 17 + i, offset->x + 29 + j, 1, WA_NORMAL, 0, NULL);
+				mvchgat(offset->y + 17 + i + k, offset->x + 29 + j + l, 1, WA_NORMAL, 0, NULL);
 		}
 	}
 
@@ -520,10 +543,6 @@ int checarColisao(borda *bordaJogo, peca_ap *peca, coord *coord_temp) {
     return 0;
 }
 
-#include <time.h>
-
-#include <time.h>
-
 void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, coord_t *center, coord_t *offset, int *cor2, char *ch) {
     coord coord_, coord_temp;
     coord_.posX = 1; coord_.posY = (COLB / 2) - 1;
@@ -565,7 +584,21 @@ void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, co
                 break;
             case 'z':
                 rotacionarPeca(peca, bordaJogo);
-                if (checarColisao(bordaJogo, peca, &coord_) || bordaJogo->cor == 3) {
+                if (coord_.posX < 2 && checarColisao(bordaJogo, peca, &coord_) && bordaJogo->cor == 5)
+                    coord_.posX += 2;
+                if (coord_.posY < 2 && checarColisao(bordaJogo, peca, &coord_) && bordaJogo->cor != 3) {
+                    if (bordaJogo->cor != 5)
+                        coord_.posY +=1;
+                    else
+                        coord_.posY +=2;
+                }
+                if (coord_.posY > 10 && checarColisao(bordaJogo, peca, &coord_) && bordaJogo->cor != 3) {
+                    if (bordaJogo->cor != 5)
+                        coord_.posY -=1;
+                    else  
+                        coord_.posY -=2;
+                }
+                if (bordaJogo->cor == 3) {
                     for (int i = 0; i < 3; i++)
                         rotacionarPeca(peca, bordaJogo);
                 }
@@ -599,7 +632,7 @@ void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, co
         if (*ch == 'q')
             break;
         clock_t atual = clock();
-        if ((atual - inicial) >= jogoInfo->delay) {
+        if ((atual - inicial) >= jogoInfo->delay || tecla == 'x') {
             coord_.posX++;
             colidiu = checarColisao(bordaJogo, peca, &coord_);
             if (colidiu) {
@@ -705,9 +738,9 @@ void linhaCompleta(borda *bordaJogo, info *jogoInfo) {
 	        case 3: jogoInfo->score += (clinhas*100)+200; jogoInfo->alinhas+=(clinhas);  break;
 	        case 4: jogoInfo->score += (clinhas*100)+400; jogoInfo->alinhas+=(clinhas);  break;
         }
-        if (jogoInfo->alinhas >= jogoInfo->nivel*2 && jogoInfo->tempo > 0.2) {
+        if (jogoInfo->alinhas >= jogoInfo->nivel*10 && jogoInfo->nivel <= 9) {
                 jogoInfo->nivel +=1;
-                jogoInfo->tempo -=1.8;
+                jogoInfo->tempo -=0.2;
         }
 }
 
