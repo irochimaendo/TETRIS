@@ -76,7 +76,7 @@ void preencherPlacar(FILE *recordes, coord_t *offset);
 void colorGameUI(coord_t *offset);
 void fillGameUiInfo(borda *bordaJogo, peca_ap *peca, info *jogoInfo, coord_t *offset, int *cor2);
 void printFileCentered(FILE *fp, coord_t *offset);
-void loopJogo(FILE *gameUI, FILE *gameOverUI, coord_t *center, coord_t *offset);
+void loopJogo(FILE *gameUI, FILE *gameOverUI, FILE *recordes, coord_t *center, coord_t *offset, Mix_Music *tetrisBgm);
 void rotacionarPeca(peca_ap *peca, borda *bordaJogo);
 int sorteioPeca(int *inicial, int *cor2, peca_ap *peca, pecas *pecas_tetris);
 int checarColisao(borda *bordaJogo, peca_ap *peca, coord *coord_);
@@ -89,7 +89,7 @@ void linhaCompleta(borda *bordaJogo, info *jogoInfo);
 void removerLinha(int end, borda *bordaJogo);
 void proximaPeca(peca_ap *peca, int cor2);
 void ajuste(peca_ap *peca, coord *ajustePeca);
-void telaDeGameOver(FILE *gameOverUI, int pontuacao, coord_t *center, coord_t *offset);
+void telaDeGameOver(FILE *gameOverUI, FILE *recordes, int pontuacao, coord_t *center, coord_t *offset);
 void colorGameOver(coord_t *offset);
 
 int main() {
@@ -100,15 +100,15 @@ int main() {
 	setlocale(LC_ALL, "");
 
 	SDL_Init(SDL_INIT_AUDIO);
-	if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
-		printf("Erro ao abrir dispositivo de áudio.\n");
+	if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) == -1) {
+		printf("Erro ao inicializar dispositivo de áudio. Saindo...\n");
 		return EXIT_FAILURE;
 	}
-
-	tetrisBgm = Mix_LoadMUS(BGM_PATH);
-
+	if((tetrisBgm = Mix_LoadMUS(BGM_PATH)) == NULL) {
+		printf("Erro ao carregar o arquivo de música. Saindo...\n");
+		return EXIT_FAILURE;
+	}
 	if(fileCheck(&tetrisMenu, &instrucoes, &placarUI, &creditos, &gameUI, &gameOverUI, &recordes) == FAIL) {
-		endwin();
 		printf("Ocorreu um erro ao abrir os arquivos. Saindo...\n");
 		return EXIT_FAILURE;
 	}
@@ -123,7 +123,6 @@ int main() {
 	}
 
 	initColors();
-	Mix_PlayMusic(tetrisBgm, -1);
 
 	do {
 		if(calculateOffset(tetrisMenu, &scrCenter, &cursOffset)) {
@@ -134,11 +133,9 @@ int main() {
 
 		menuSelect = tolower(getch());
 
-		// Não coloquei esse switch-case em sua própria função pra não ter que repassar um monte de ponteiros,
-		// apesar de ficar bem feio.
 		switch(menuSelect) {
 			case 'j':
-				loopJogo(gameUI, gameOverUI, &scrCenter, &cursOffset);
+				loopJogo(gameUI, gameOverUI, recordes, &scrCenter, &cursOffset, tetrisBgm);
 				break;
 
 			case 'i':
@@ -170,8 +167,6 @@ int main() {
 				break;
 		}
 	} while(menuSelect != 'q');
-
-	Mix_HaltMusic();
 
 	endwin();
 	fclose(tetrisMenu); fclose(instrucoes); fclose(placarUI);
@@ -332,7 +327,7 @@ void preencherPlacar(FILE *recordes, coord_t *offset) {
 	for(int i = 0; i < 10; ++i) {
 		if(fscanf(recordes, "%3s %d", info[i].nome, &info[i].pontuacao) != 2) break;
 		mvaddstr(offset->y + 5 + i, offset->x + 8, info[i].nome);
-		mvprintw(offset->y + 5 + i, offset->x + 18, "%09d", info[i].pontuacao);
+		mvprintw(offset->y + 5 + i, offset->x + 18, "%8d", info[i].pontuacao);
 	}
 	rewind(recordes);
 }
@@ -392,13 +387,13 @@ void fillGameUiInfo(borda *bordaJogo, peca_ap *peca, info *jogoInfo, coord_t *of
 	}
 }
 
-void loopJogo(FILE *gameUI, FILE *gameOverUI, coord_t *center, coord_t *offset) {
+void loopJogo(FILE *gameUI, FILE *gameOverUI, FILE *recordes, coord_t *center, coord_t *offset, Mix_Music *tetrisBgm) {
 
 	srand(time(NULL));
 	borda bordaJogo;
     pecas pecas_tetris;
     peca_ap peca;
-    info jogoInfo = {1, 0, 0, 2.0, jogoInfo.tempo * CLOCKS_PER_SEC};
+    info jogoInfo = {1, 0, 0, 1.0, jogoInfo.tempo * CLOCKS_PER_SEC};
     coord ajustePeca;
     int cor2; char ch = 0;
     lixo(&bordaJogo);
@@ -406,6 +401,7 @@ void loopJogo(FILE *gameUI, FILE *gameOverUI, coord_t *center, coord_t *offset) 
     defPeca(&pecas_tetris);
     int gameOver = 0, inicial = 0;
 	keypad(stdscr, TRUE); nodelay(stdscr, TRUE);
+	Mix_PlayMusic(tetrisBgm, -1);
 
     while (!gameOver) {
 		refresh();
@@ -441,8 +437,10 @@ void loopJogo(FILE *gameUI, FILE *gameOverUI, coord_t *center, coord_t *offset) 
 			usleep(40000);
 		}
 
-		telaDeGameOver(gameOverUI, jogoInfo.score, center, offset);
+		Mix_HaltMusic();
+		telaDeGameOver(gameOverUI, recordes, jogoInfo.score, center, offset);
 	}
+	Mix_HaltMusic();
 }
 
 void defBorda(borda *bordaJogo) {
@@ -752,7 +750,7 @@ void linhaCompleta(borda *bordaJogo, info *jogoInfo) {
         }
         if (jogoInfo->alinhas >= jogoInfo->nivel*10 && jogoInfo->nivel <= 9) {
                 jogoInfo->nivel +=1;
-                jogoInfo->tempo -=0.2;
+                jogoInfo->tempo -=0.088;
         }
 }
 
@@ -778,30 +776,67 @@ void ajuste(peca_ap *peca, coord *ajustePeca) {
     ajustePeca->posX = ajustePeca->posX - min;
 }
 
-void telaDeGameOver(FILE *gameOverUI, int pontuacao, coord_t *center, coord_t *offset) {
-	bool novoRecorde = TRUE;
-	char nomeJogador[4];
+void telaDeGameOver(FILE *gameOverUI, FILE *recordes, int pontuacao, coord_t *center, coord_t *offset) {
+	bool novoRecorde = FALSE;
+	char nomeJogador[4], auxNome[4];
+	ranking info[10];
+	int posicaoNovoRecorde, auxPontuacao;
 
-	if(calculateOffset(gameOverUI, center, offset) == TRUE) {
-		printFileCentered(gameOverUI, offset);
-		colorGameOver(offset);
-		mvprintw(offset->y + 12, offset->x + 47, "%d", pontuacao);
+	for(int i = 0; i < 10; ++i) {
+		fscanf(recordes, "%3s %d", info[i].nome, &info[i].pontuacao);
+	}
+	rewind(recordes);
+
+	for(int j = 0; j < 10; ++j) {
+		if(pontuacao > info[j].pontuacao) {
+			posicaoNovoRecorde = j;
+			novoRecorde = TRUE;
+			break;
+		}
 	}
 
-	if(novoRecorde == TRUE) {
-		mvchgat(offset->y + 16, 0, -1, WA_NORMAL, 15, NULL);
-		move(offset->y + 15, offset->x + 57);
-		refresh();
-		curs_set(1); echo();
-		getnstr(nomeJogador, 3);
-		curs_set(0); noecho();
-	}
-	else {
-		mvchgat(offset->y + 13, 0, -1, WA_NORMAL, 15, NULL);
-		mvchgat(offset->y + 15, 0, -1, WA_NORMAL, 15, NULL);
-		while(getch() != 'q');
-	}
+	while(1) {
+		if(calculateOffset(gameOverUI, center, offset) == TRUE) {
+			printFileCentered(gameOverUI, offset);
+			colorGameOver(offset);
+			mvprintw(offset->y + 12, offset->x + 47, "%d", pontuacao);
+		}
 
+		if(novoRecorde == TRUE) {
+			mvchgat(offset->y + 16, 0, -1, WA_NORMAL, 15, NULL);
+			mvaddstr(offset->y + 15, offset->x + 57, "   ");
+			move(offset->y + 15, offset->x + 57);
+			refresh();
+
+			curs_set(1); echo();
+			getnstr(nomeJogador, 3);
+			curs_set(0); noecho();
+			if(strlen(nomeJogador) < 3) continue;
+
+			for(int k = posicaoNovoRecorde; k < 10; ++k) {
+				strcpy(auxNome, info[k].nome);
+				strcpy(info[k].nome, nomeJogador);
+				strcpy(nomeJogador, auxNome);
+
+				auxPontuacao = info[k].pontuacao;
+				info[k].pontuacao = pontuacao;
+				pontuacao = auxPontuacao;
+			}
+
+			for(int l = 0; l < 10; ++l)
+				fprintf(recordes, "%3s %d\n", info[l].nome, info[l].pontuacao);
+
+			fflush(recordes);
+			rewind(recordes);
+			break;
+		}
+		else {
+			mvchgat(offset->y + 13, 0, -1, WA_NORMAL, 15, NULL);
+			mvchgat(offset->y + 15, 0, -1, WA_NORMAL, 15, NULL);
+			refresh();
+			if(tolower(getch()) == 'q') break;
+		}
+	}
 }
 
 void colorGameOver(coord_t *offset) {
