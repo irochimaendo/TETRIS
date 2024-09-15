@@ -10,8 +10,7 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 
-                  Sua pontuação nesta rodada: 
+                  Sua pontuação nesta rodada:
                                   NOVO RECORDE!
-
-                  Coloque seu nome (máximo de 3 letras):
                   Pressione 'q' para voltar ao menu principal.
+                  Coloque seu nome (exatamente 3 letras):
