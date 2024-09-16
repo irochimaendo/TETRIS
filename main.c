@@ -12,8 +12,8 @@
 #define FAIL 1
 
 #define TAMP 4
-#define LINB 20
-#define COLB 17
+#define LINB 22
+#define COLB 12
 #define VELOCIDADE 50
 
 #define TEXT_LENGTH 256
@@ -364,54 +364,59 @@ void colorPlacar(coord_t *offset) {
 void colorGameUI(coord_t *offset) {
 
 	// Eu quis fazer as bordas ficarem mais esmaecidas. Contraste ou algo assim.
-	mvchgat(offset->y, offset->x, 46, WA_DIM, 0, NULL);
-	for(int i = 1; i < 23; ++i) {
+	mvchgat(offset->y, offset->x, 51, WA_DIM, 0, NULL);
+	for(int i = 1; i < 25; ++i) {
 		mvchgat(offset->y + i, offset->x, 1, WA_DIM, 0, NULL);
-		mvchgat(offset->y + i, offset->x + 45, 1, WA_DIM, 0, NULL);
+		mvchgat(offset->y + i, offset->x + 50, 1, WA_DIM, 0, NULL);
 	}
-	mvchgat(offset->y + 23, offset->x, 46, WA_DIM, 0, NULL);
+	mvchgat(offset->y + 25, offset->x, 51, WA_DIM, 0, NULL);
 
 	// Colorir a logo do Tetris na interface do jogo. Mesma estratégia de antes.
 	for(int i = 0; i < 3; ++i) {
 		for(int j = 0; j < 4; ++j)
-			mvchgat(offset->y + 3 + i, offset->x + 23 + 3*j, 3, WA_NORMAL, j + 8, NULL);
-		mvchgat(offset->y + 3 + i, offset->x + 35, 1, WA_NORMAL, 12, NULL);
-		mvchgat(offset->y + 3 + i, offset->x + 36, 3, WA_NORMAL, 14, NULL);
+			mvchgat(offset->y + 3 + i, offset->x + 28 + 3*j, 3, WA_NORMAL, j + 8, NULL);
+		mvchgat(offset->y + 3 + i, offset->x + 40, 1, WA_NORMAL, 12, NULL);
+		mvchgat(offset->y + 3 + i, offset->x + 41, 3, WA_NORMAL, 14, NULL);
 	}
 
 	// Colorir os outros indicadores (linhas eliminadas, nível, próxima peça)
-	mvchgat(offset->y + 9, offset->x + 23, 5, WA_BOLD, 9, NULL);
-	mvchgat(offset->y + 9, offset->x + 32, 6, WA_BOLD, 10, NULL);
-	mvchgat(offset->y + 13, offset->x + 25, 12, WA_BOLD, 11, NULL);
+	mvchgat(offset->y + 9, offset->x + 28, 5, WA_BOLD, 9, NULL);
+	mvchgat(offset->y + 9, offset->x + 37, 6, WA_BOLD, 10, NULL);
+	mvchgat(offset->y + 13, offset->x + 30, 12, WA_BOLD, 11, NULL);
 }
 
 void fillGameUiInfo(borda *bordaJogo, peca_ap *peca, info *jogoInfo, coord_t *offset, int *cor2) {
+	int k, l;
+
+	switch(*cor2) {
+		case 3: k = 0; l = 1; break;
+		case 5: k = -1; l = -1; break;
+		default: k = 0; l = 0;
+	}
 
 	// Pontuação, nível e linhas:
-	mvprintw(offset->y + 7, offset->x + 23, "%16d", jogoInfo->score);
-	mvprintw(offset->y + 10, offset->x + 23, "%5d", jogoInfo->nivel);
-	mvprintw(offset->y + 10, offset->x + 32, "%6d", jogoInfo->alinhas);
+	mvprintw(offset->y + 7, offset->x + 28, "%16d", jogoInfo->score);
+	mvprintw(offset->y + 10, offset->x + 28, "%5d", jogoInfo->nivel);
+	mvprintw(offset->y + 10, offset->x + 37, "%6d", jogoInfo->alinhas);
 
 	// Próxima peça:
-    int k = *cor2 == 5 ? -1 : 0;
-    int l = *cor2 == 3 ? 1 : 0;
 	for(int i = 0; i < TAMP; ++i) {
 		for(int j = 0; j < TAMP; ++j) {
             if (!j)
-                mvchgat(offset->y + 17 + i, offset->x + 29 + j, 1, WA_NORMAL, 0, NULL);
+                mvchgat(offset->y + 18 + i, offset->x + 32 + j, 2, WA_NORMAL, 0, NULL);
 			if (peca->peca2[i][j] == '#')
-				mvchgat(offset->y + 17 + i + k, offset->x + 29 + j + l, 1, WA_NORMAL, *cor2, NULL);
+				mvchgat(offset->y + 18 + i + k, offset->x + 33 + 2*j + l, 2, WA_NORMAL, *cor2, NULL);
 			else
-				mvchgat(offset->y + 17 + i + k, offset->x + 29 + j + l, 1, WA_NORMAL, 0, NULL);
+				mvchgat(offset->y + 18 + i + k, offset->x + 33 + 2*j + l, 2, WA_NORMAL, 0, NULL);
 		}
 	}
 
 	for(int i = 1; i < LINB - 1; ++i) {
 		for(int j = 1; j < COLB - 1; ++j) {
 			if (bordaJogo->borda[i][j] == '#')
-				mvchgat(offset->y + 3 + (i-1), offset->x + 6 + (j-1), 1, WA_NORMAL, bordaJogo->corBorda[i][j], NULL);
+				mvchgat(offset->y + 3 + (i-1), offset->x + 6 + 2*(j-1), 2, WA_NORMAL, bordaJogo->corBorda[i][j], NULL);
 			else
-				mvchgat(offset->y + 3 + (i-1), offset->x + 6 + (j-1), 1, WA_NORMAL, 0, NULL);
+				mvchgat(offset->y + 3 + (i-1), offset->x + 6 + 2*(j-1), 2, WA_NORMAL, 0, NULL);
 		}
 	}
 }
@@ -631,7 +636,7 @@ void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, co
                     else
                         coord_.posY +=2;
                 }
-                if (coord_.posY > 10 && checarColisao(bordaJogo, peca, &coord_) && bordaJogo->cor != 3) {
+                if (coord_.posY > COLB - 7 && checarColisao(bordaJogo, peca, &coord_) && bordaJogo->cor != 3) {
                     if (bordaJogo->cor != 5)
                         coord_.posY -=1;
                     else  
