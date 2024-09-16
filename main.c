@@ -589,7 +589,7 @@ int checarColisao(borda *bordaJogo, peca_ap *peca, coord *coord_temp) {
 
 void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, coord_t *center, coord_t *offset, int *cor2, char *ch) {
     coord coord_, coord_temp;
-    coord_.posX = 1; coord_.posY = (COLB / 2) - 1;
+    coord_.posX = 1; coord_.posY = (COLB / 2) - 2;
     ajuste(peca, &coord_);
     int colidiu;
     clock_t inicial = clock();
