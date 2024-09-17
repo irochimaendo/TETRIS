@@ -1,3 +1,14 @@
-Para ser preenchido.
-Gustavo Cavalcante Colares
-Pressione 'q' para voltar.
+╔═══════════════════════════════════════════╗
+║                                           ║
+║                 Autores                   ║
+║                                           ║
+║        Gustavo Cavalcante Colares         ║
+║       Hitalo Hudyson Feitosa Paiva        ║
+║   Richard Brendon de Alcântara Pereira    ║
+║           Samuel Guerra Bento             ║
+║        Udson Marçal de Lima Maia          ║
+║      Tiago de Oliveira Endo Marques       ║
+║                                           ║
+║        Pressione 'q' para voltar.         ║
+║                                           ║
+╚═══════════════════════════════════════════╝
