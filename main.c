@@ -48,7 +48,7 @@ typedef struct {
 	char p5[TAMP][TAMP]; char p6[TAMP][TAMP]; char p7[TAMP][TAMP];
 } pecas;
 typedef struct {
-	char borda[LINB][COLB]; int corBorda[LINB][COLB]; int cor; 
+	char borda[LINB][COLB]; int corBorda[LINB][COLB]; int cor;
 } borda;
 typedef struct {
 	int posX; int posY;
@@ -74,6 +74,7 @@ bool calculateOffset(FILE *fp, coord_t *center, coord_t *offset);
 void colorMainMenu(coord_t *offset);
 void colorInstrucoes(coord_t *offset);
 void colorPlacar(coord_t *offset);
+void colorCreditos(coord_t *offset);
 void preencherPlacar(FILE *recordes, coord_t *offset);
 void colorGameUI(coord_t *offset);
 void fillGameUiInfo(borda *bordaJogo, peca_ap *peca, info *jogoInfo, coord_t *offset, int *cor2);
@@ -101,13 +102,12 @@ int main() {
 	coord_t scrCenter, cursOffset;
 	setlocale(LC_ALL, "");
 
-	SDL_Init(SDL_INIT_AUDIO);
 	if(audioInit(&tetrisBgm) == FAIL) {
-		printf("Erro ao inicializar o sistema de áudio. Saindo...\n");
+		fprintf(stderr, "Erro ao inicializar o sistema de áudio. Saindo...\n");
 		return EXIT_FAILURE;
 	}
 	if(fileCheck(&tetrisMenu, &instrucoes, &placarUI, &creditos, &gameUI, &gameOverUI, &recordes) == FAIL) {
-		printf("Ocorreu um erro ao abrir os arquivos. Saindo...\n");
+		fprintf(stderr, "Ocorreu um erro ao abrir os arquivos. Saindo...\n");
 		return EXIT_FAILURE;
 	}
 
@@ -116,7 +116,7 @@ int main() {
 		endwin();
 		fclose(tetrisMenu); fclose(instrucoes); fclose(placarUI);
 		fclose(creditos); fclose(gameUI); fclose(gameOverUI); fclose(recordes);
-		printf("Este terminal não possui suporte de cores adequado. Saindo...\n");
+		fprintf(stderr, "Este terminal não possui suporte de cores adequado. Saindo...\n");
 		return EXIT_FAILURE;
 	}
 
@@ -159,8 +159,10 @@ int main() {
 
 			case 'c':
 				do {
-					if(calculateOffset(creditos, &scrCenter, &cursOffset) == TRUE)
+					if(calculateOffset(creditos, &scrCenter, &cursOffset) == TRUE) {
 						printFileCentered(creditos, &cursOffset);
+						colorCreditos(&cursOffset);
+					}
 					refresh();
 				} while(tolower(getch()) != 'q');
 				break;
@@ -193,14 +195,17 @@ int fileCheck(FILE **tetrisMenu, FILE **instrucoes, FILE **placarUI, FILE **cred
 }
 
 int audioInit(Mix_Music **tetrisBgm) {
+	if(SDL_Init(SDL_INIT_AUDIO) < 0) return FAIL;
 	if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) == -1) return FAIL;
 	if((*tetrisBgm = Mix_LoadMUS(BGM_PATH)) == NULL) return FAIL;
 	Mix_VolumeMusic(40);
+	if(Mix_VolumeMusic(-1) != 40) return FAIL;
+
 	return PASS;
 }
 
 void initNcurses() {
-	initscr(); noecho(); curs_set(0); start_color(); 
+	initscr(); noecho(); curs_set(0); start_color();
 }
 
 int colorCheck() {
@@ -249,7 +254,7 @@ void initColors() {
 	init_pair(6, COLOR_BLACK, COLOR_BLUE);
 	init_pair(7, COLOR_BLACK, COLOR_MAGENTA);
 
-	// Pares de cor para texto: 
+	// Pares de cor para texto:
 	init_pair(8, COLOR_RED, COLOR_BLACK);
 	init_pair(9, COLOR_ORANGE, COLOR_BLACK);
 	init_pair(10, COLOR_YELLOW, COLOR_BLACK);
@@ -262,7 +267,7 @@ void initColors() {
 
 bool calculateOffset(FILE *fp, coord_t *center, coord_t *offset) {
 
-	/* 
+	/*
 	 * "offset" tem a ver com a posição do cursor na tela, que é "deslocada"
 	 * em relação ao centro da tela.
 	 */
@@ -337,28 +342,32 @@ void preencherPlacar(FILE *recordes, coord_t *offset) {
 		// Desta maneira, fica mais simples.
 
 		if(fscanf(recordes, "%3s %d", info[i].nome, &info[i].pontuacao) != 2) break;
-		mvaddstr(offset->y + 7 + i, offset->x + 12, info[i].nome);
-		mvprintw(offset->y + 7 + i, offset->x + 22, "%8d", info[i].pontuacao);
+		mvaddstr(offset->y + 7 + i, offset->x + 13, info[i].nome);
+		mvprintw(offset->y + 7 + i, offset->x + 23, "%8d", info[i].pontuacao);
 	}
 	rewind(recordes);
 }
 
 void colorPlacar(coord_t *offset) {
-	mvchgat(offset->y, offset->x, 38, WA_DIM, 0, NULL);
+	mvchgat(offset->y, offset->x, 40, WA_DIM, 0, NULL);
 	for(int i = 1; i < 20; ++i) {
 		mvchgat(offset->y + i, offset->x, 1, WA_DIM, 0, NULL);
-		mvchgat(offset->y + i, offset->x + 37, 1, WA_DIM, 0, NULL);
+		mvchgat(offset->y + i, offset->x + 39, 1, WA_DIM, 0, NULL);
 	}
-	mvchgat(offset->y + 20, offset->x, 38, WA_DIM, 0, NULL);
+	mvchgat(offset->y + 20, offset->x, 40, WA_DIM, 0, NULL);
 
 	for(int j = 0; j < 2; ++j) {
-		mvchgat(offset->y + 3 + j, offset->x + 9, 3, WA_NORMAL, 9, NULL);
-		mvchgat(offset->y + 3 + j, offset->x + 13, 3, WA_NORMAL, 8, NULL);
-		mvchgat(offset->y + 3 + j, offset->x + 17, 3, WA_NORMAL, 14, NULL);
-		mvchgat(offset->y + 3 + j, offset->x + 23, 6, WA_NORMAL, 13, NULL);
+		mvchgat(offset->y + 3 + j, offset->x + 10, 3, WA_NORMAL, 10, NULL);
+		mvchgat(offset->y + 3 + j, offset->x + 14, 3, WA_NORMAL, 9, NULL);
+		mvchgat(offset->y + 3 + j, offset->x + 18, 3, WA_NORMAL, 14, NULL);
+		mvchgat(offset->y + 3 + j, offset->x + 24, 6, WA_NORMAL, 13, NULL);
 	}
 
-	mvchgat(offset->y + 22, offset->x + 16, 3, WA_BOLD, 8, NULL);
+	mvchgat(offset->y + 22, offset->x + 17, 3, WA_BOLD, 8, NULL);
+}
+
+void colorCreditos(coord_t *offset) {
+	mvchgat(offset->y + 2, offset->x + 18, 7, WA_BOLD | WA_UNDERLINE, 12, NULL);
 }
 
 void colorGameUI(coord_t *offset) {
@@ -542,13 +551,13 @@ int sorteioPeca(int *inicial, int *cor2, peca_ap *peca, pecas *pecas_tetris) {
     int cor, corProx;
     char (*pecaEscolhida)[TAMP] = NULL;
     switch (k) {
-        case 1: pecaEscolhida = pecas_tetris->p1; cor = 5; break;  
-        case 2: pecaEscolhida = pecas_tetris->p2; cor = 6; break;  
-        case 3: pecaEscolhida = pecas_tetris->p3; cor = 2; break;  
-        case 4: pecaEscolhida = pecas_tetris->p4; cor = 3; break;  
-        case 5: pecaEscolhida = pecas_tetris->p5; cor = 4; break;  
-        case 6: pecaEscolhida = pecas_tetris->p6; cor = 7; break;  
-        case 7: pecaEscolhida = pecas_tetris->p7; cor = 1; break;  
+        case 1: pecaEscolhida = pecas_tetris->p1; cor = 5; break;
+        case 2: pecaEscolhida = pecas_tetris->p2; cor = 6; break;
+        case 3: pecaEscolhida = pecas_tetris->p3; cor = 2; break;
+        case 4: pecaEscolhida = pecas_tetris->p4; cor = 3; break;
+        case 5: pecaEscolhida = pecas_tetris->p5; cor = 4; break;
+        case 6: pecaEscolhida = pecas_tetris->p6; cor = 7; break;
+        case 7: pecaEscolhida = pecas_tetris->p7; cor = 1; break;
     }
     if (pecaEscolhida != NULL) {
         for (int i = 0; i < TAMP; i++) {
@@ -559,13 +568,13 @@ int sorteioPeca(int *inicial, int *cor2, peca_ap *peca, pecas *pecas_tetris) {
     k = k2;
     char (*proxPeca)[TAMP] = NULL;
     switch (k2) {
-        case 1: proxPeca = pecas_tetris->p1; corProx = 5; break;  
-        case 2: proxPeca = pecas_tetris->p2; corProx = 6; break;  
-        case 3: proxPeca = pecas_tetris->p3; corProx = 2; break;  
-        case 4: proxPeca = pecas_tetris->p4; corProx = 3; break;  
-        case 5: proxPeca = pecas_tetris->p5; corProx = 4; break;  
-        case 6: proxPeca = pecas_tetris->p6; corProx = 7; break;  
-        case 7: proxPeca = pecas_tetris->p7; corProx = 1; break;  
+        case 1: proxPeca = pecas_tetris->p1; corProx = 5; break;
+        case 2: proxPeca = pecas_tetris->p2; corProx = 6; break;
+        case 3: proxPeca = pecas_tetris->p3; corProx = 2; break;
+        case 4: proxPeca = pecas_tetris->p4; corProx = 3; break;
+        case 5: proxPeca = pecas_tetris->p5; corProx = 4; break;
+        case 6: proxPeca = pecas_tetris->p6; corProx = 7; break;
+        case 7: proxPeca = pecas_tetris->p7; corProx = 1; break;
     }
     *cor2 = corProx;
     if (proxPeca != NULL) {
@@ -602,7 +611,7 @@ void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, co
                     bordaJogo->borda[coord_.posX + i][coord_.posY + j] = ' ';
             }
         }
-        int tecla = tolower(getch()); 
+        int tecla = tolower(getch());
         switch (tecla) {
             case KEY_DOWN:
                 coord_temp = (coord){coord_.posX + 1, coord_.posY};
@@ -639,7 +648,7 @@ void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, co
                 if (coord_.posY > COLB - 7 && checarColisao(bordaJogo, peca, &coord_) && bordaJogo->cor != 3) {
                     if (bordaJogo->cor != 5)
                         coord_.posY -=1;
-                    else  
+                    else
                         coord_.posY -=2;
                 }
                 if (bordaJogo->cor == 3) {
@@ -818,7 +827,6 @@ void telaDeGameOver(FILE *gameOverUI, FILE *recordes, int pontuacao, coord_t *ce
 
 	for(int i = 0; i < 10; ++i)
 		fscanf(recordes, "%3s %d", info[i].nome, &info[i].pontuacao);
-
 	rewind(recordes);
 
 	for(int j = 0; j < 10; ++j) {
