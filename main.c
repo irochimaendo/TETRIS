@@ -658,10 +658,13 @@ void moverPeca(borda *bordaJogo, peca_ap *peca, info *jogoInfo, FILE *gameUI, co
                 teclou = 1;
                 break;
             case 'x':
+		int posX_inicial = coord_.posX;
                 while (1) {
                     coord_temp = (coord){coord_.posX + 1, coord_.posY};
-                    if (checarColisao(bordaJogo, peca, &coord_temp))
+                    if (checarColisao(bordaJogo, peca, &coord_temp)) {
+			jogoInfo->score += coord_.posX - posX_inicial;
                         break;
+		    }
                     coord_.posX = coord_temp.posX;
                 }
                 teclou = 1;
