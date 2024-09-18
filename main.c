@@ -368,6 +368,7 @@ void colorPlacar(coord_t *offset) {
 
 void colorCreditos(coord_t *offset) {
 	mvchgat(offset->y + 2, offset->x + 18, 7, WA_BOLD | WA_UNDERLINE, 12, NULL);
+	mvchgat(offset->y + 11, offset->x + 19, 3, WA_BOLD, 8, NULL);
 }
 
 void colorGameUI(coord_t *offset) {
